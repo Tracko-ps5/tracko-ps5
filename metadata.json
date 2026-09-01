@@ -1,0 +1,6 @@
+{
+  "name": "TRACKO - Tracker & Comparateur de Prix PS5",
+  "description": "Comparateur de prix et tracker en direct pour PlayStation 5, PS5 Slim et PS5 Pro. Historique des prix, alertes promos et meilleurs bons plans marchands.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
