@@ -1,19 +1,11 @@
 [build]
-  publish = "dist"
-  command = "npm run build"
+  publish = "public"
+  functions = "netlify/functions"
 
 [functions]
-  directory = "netlify/functions"
+  node_bundler = "esbuild"
 
-# Redirection de toutes les requêtes /api/* vers la Netlify Function TRACKO
 [[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/api"
-  status = 200
-  force = true
-
-# Redirection SPA standard pour React
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
+  from = "/api/subscribe"
+  to = "/.netlify/functions/subscribe"
   status = 200
