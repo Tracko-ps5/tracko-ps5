@@ -1,0 +1,155 @@
+---
+export const prerender = false;
+import Layout from "../layouts/Layout.astro";
+import { isValidSession, ADMIN_SESSION_COOKIE } from "../lib/admin-auth";
+import { getEditableSnapshot } from "../lib/live-data";
+
+const session = Astro.cookies.get(ADMIN_SESSION_COOKIE)?.value;
+const authenticated = isValidSession(session);
+
+const error = Astro.url.searchParams.get("error");
+const saved = Astro.url.searchParams.get("saved");
+
+const errorMessages: Record<string, string> = {
+  code: "Code incorrect.",
+  session: "Ta session a expiré, reconnecte-toi.",
+  json: "Le texte collé n'est pas un JSON valide.",
+  shape: "Le JSON ne correspond pas au format attendu (vérifie les champs de chaque marchand).",
+  storage: "L'enregistrement a échoué (problème de connexion au stockage). Réessaie dans un instant.",
+};
+
+let snapshotJson = "";
+if (authenticated) {
+  const snapshot = await getEditableSnapshot();
+  snapshotJson = JSON.stringify(snapshot, null, 2);
+}
+---
+
+<Layout title="Administration — Tracko" description="Espace d'administration Tracko.">
+  <div class="container admin">
+    {!authenticated && (
+      <div class="admin__login">
+        <h1>Administration</h1>
+        <p class="admin__hint">Entre le code d'accès pour mettre à jour les prix du site.</p>
+        {error === "code" && <p class="admin__error">Code incorrect.</p>}
+        <form method="POST" action="/api/admin/login" class="admin__form">
+          <input type="password" name="code" placeholder="Code d'accès" required autofocus />
+          <button type="submit" class="button button--primary">Se connecter</button>
+        </form>
+      </div>
+    )}
+
+    {authenticated && (
+      <div class="admin__panel">
+        <div class="admin__header">
+          <h1>Administration</h1>
+          <form method="POST" action="/api/admin/logout">
+            <button type="submit" class="button">Se déconnecter</button>
+          </form>
+        </div>
+
+        {saved === "1" && <p class="admin__success">Enregistré — le site affiche maintenant ces données.</p>}
+        {error && errorMessages[error] && <p class="admin__error">{errorMessages[error]}</p>}
+
+        <div class="admin__instructions">
+          <p><strong>Comment ça marche :</strong> le texte ci-dessous contient tous les modèles, éditions et marchands actuellement affichés sur le site. Modifie les prix, passe <code>available</code> à <code>false</code> pour une rupture de stock, ajoute ou retire un objet marchand dans la liste — puis clique sur Enregistrer. Le site public est mis à jour immédiatement, sans reconstruction.</p>
+          <p>Clé de chaque bloc : <code>famille:édition:version</code> — éditions : <code>neuf</code> / <code>reconditionne</code> ; versions : <code>digital</code> / <code>lecteur</code>.</p>
+        </div>
+
+        <form method="POST" action="/api/admin/save" class="admin__form">
+          <textarea name="payload" class="admin__textarea" spellcheck="false">{snapshotJson}</textarea>
+          <button type="submit" class="button button--primary">Enregistrer et publier</button>
+        </form>
+      </div>
+    )}
+  </div>
+</Layout>
+
+<style>
+  .admin {
+    padding: 48px 24px 80px;
+    max-width: 720px;
+  }
+
+  .admin__login {
+    max-width: 320px;
+    margin: 60px auto 0;
+    text-align: center;
+  }
+
+  .admin__hint {
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    margin: 8px 0 20px;
+  }
+
+  .admin__form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .admin__form input {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    padding: 10px 14px;
+    border: 0.5px solid var(--color-border-strong);
+    border-radius: var(--radius-control);
+  }
+
+  .admin__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+
+  .admin__success {
+    background: var(--color-excellent-bg);
+    color: var(--color-excellent-text);
+    padding: 10px 14px;
+    border-radius: var(--radius-control);
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+
+  .admin__error {
+    background: var(--color-tres-cher-bg);
+    color: var(--color-tres-cher-text);
+    padding: 10px 14px;
+    border-radius: var(--radius-control);
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+
+  .admin__instructions {
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    background: var(--color-surface-muted);
+    border-radius: var(--radius-control);
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    line-height: 1.6;
+  }
+
+  .admin__instructions code {
+    background: var(--color-surface);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+
+  .admin__textarea {
+    width: 100%;
+    min-height: 420px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12.5px;
+    line-height: 1.5;
+    padding: 14px;
+    border: 0.5px solid var(--color-border-strong);
+    border-radius: var(--radius-control);
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+    resize: vertical;
+  }
+</style>

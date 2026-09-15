@@ -1,0 +1,173 @@
+---
+interface Props {
+  modelName: string;
+  currentPrice: number;
+  familySlug: string;
+  edition: string;
+  version: string;
+}
+
+const { modelName, currentPrice, familySlug, edition, version } = Astro.props;
+const suggestedTarget = Math.round((currentPrice * 0.9) / 10) * 10;
+---
+
+<div class="alert-form card" data-family={familySlug} data-edition={edition} data-version={version} data-product-label={modelName}>
+  <p class="alert-form__title">Créer une alerte</p>
+  <p class="alert-form__subtitle">Préviens-moi par email lorsque la {modelName} passe sous un certain prix.</p>
+
+  <div class="alert-form__row">
+    <label for="alert-email" class="alert-form__label">Ton email</label>
+    <div class="alert-form__input-wrap alert-form__input-wrap--full">
+      <input type="email" id="alert-email" name="email" placeholder="toi@exemple.com" required />
+    </div>
+  </div>
+
+  <div class="alert-form__row">
+    <label for="target-price" class="alert-form__label">Prix cible</label>
+    <div class="alert-form__input-wrap">
+      <input
+        type="number"
+        id="target-price"
+        name="target-price"
+        value={suggestedTarget}
+        min="0"
+        step="10"
+      />
+      <span aria-hidden="true">€</span>
+    </div>
+  </div>
+
+  <button type="button" class="button button--primary alert-form__submit" id="alert-submit">Créer l'alerte</button>
+  <p class="alert-form__note" id="alert-note">Tu recevras un email dès que ce prix est atteint.</p>
+</div>
+
+<script>
+  document.querySelectorAll<HTMLElement>(".alert-form").forEach((form) => {
+    const button = form.querySelector<HTMLButtonElement>(".alert-form__submit");
+    const note = form.querySelector<HTMLElement>(".alert-form__note");
+    const emailInput = form.querySelector<HTMLInputElement>("#alert-email");
+    const priceInput = form.querySelector<HTMLInputElement>("#target-price");
+
+    button?.addEventListener("click", async () => {
+      if (!button || !note || !emailInput || !priceInput) return;
+
+      const email = emailInput.value.trim();
+      const targetPrice = Number(priceInput.value);
+
+      if (!email || !email.includes("@")) {
+        note.textContent = "Entre une adresse email valide.";
+        note.style.color = "var(--color-tres-cher-text)";
+        return;
+      }
+      if (!targetPrice || targetPrice <= 0) {
+        note.textContent = "Entre un prix cible valide.";
+        note.style.color = "var(--color-tres-cher-text)";
+        return;
+      }
+
+      button.disabled = true;
+      button.textContent = "Création...";
+      note.style.color = "";
+      note.textContent = "";
+
+      try {
+        const response = await fetch("/api/alerts/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email,
+            targetPrice,
+            familySlug: form.dataset.family,
+            edition: form.dataset.edition,
+            version: form.dataset.version,
+            productLabel: form.dataset.productLabel,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Une erreur est survenue.");
+        }
+
+        button.textContent = "Alerte enregistrée ✓";
+        note.textContent = "Vérifie ta boîte mail pour la confirmation.";
+        emailInput.disabled = true;
+        priceInput.disabled = true;
+      } catch (err) {
+        button.disabled = false;
+        button.textContent = "Créer l'alerte";
+        note.style.color = "var(--color-tres-cher-text)";
+        note.textContent = err instanceof Error ? err.message : "Une erreur est survenue, réessaie.";
+      }
+    });
+  });
+</script>
+
+<style>
+  .alert-form {
+    padding: 20px;
+  }
+
+  .alert-form__title {
+    font-size: 15px;
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+
+  .alert-form__subtitle {
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    margin-bottom: 16px;
+  }
+
+  .alert-form__row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+
+  .alert-form__label {
+    font-size: 12px;
+    color: var(--color-text-secondary);
+  }
+
+  .alert-form__input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 0.5px solid var(--color-border-strong);
+    border-radius: var(--radius-control);
+    padding: 8px 12px;
+    width: fit-content;
+  }
+
+  .alert-form__input-wrap--full {
+    width: 100%;
+  }
+
+  .alert-form__input-wrap input {
+    border: none;
+    outline: none;
+    font-size: 14px;
+    width: 90px;
+    font-family: var(--font-sans);
+  }
+
+  .alert-form__input-wrap--full input {
+    width: 100%;
+  }
+
+  .alert-form__submit {
+    width: 100%;
+  }
+
+  .alert-form__note {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    margin-top: 10px;
+    text-align: center;
+    min-height: 16px;
+  }
+</style>

@@ -1,5 +1,29 @@
 User-agent: *
 Allow: /
+Disallow: /administration
+Disallow: /api/
 
-# Sitemap
-Sitemap: https://tracko.fr/sitemap.xml
+# Robots IA — autorisés explicitement pour que Tracko puisse être cité par les
+# assistants conversationnels et moteurs de réponse
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+Sitemap: https://tracko-ps5.netlify.app/sitemap.xml

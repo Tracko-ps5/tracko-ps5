@@ -1,0 +1,427 @@
+---
+import "../styles/global.css";
+
+interface Props {
+  title: string;
+  description: string;
+  jsonLd?: Record<string, unknown> | Record<string, unknown>[];
+}
+
+const { title, description, jsonLd } = Astro.props;
+
+const canonicalUrl = new URL(
+  Astro.url.pathname,
+  Astro.site ?? "https://tracko-ps5.netlify.app"
+).toString();
+---
+
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1"
+    />
+
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="/favicon.svg"
+    />
+
+    <title>{title}</title>
+
+    <meta
+      name="description"
+      content={description}
+    />
+
+    <link
+      rel="canonical"
+      href={canonicalUrl}
+    />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Tracko" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:locale" content="fr_FR" />
+    <meta
+      property="og:image"
+      content="https://tracko-ps5.netlify.app/images/og-cover.jpg"
+    />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+
+    <meta
+      name="twitter:card"
+      content="summary_large_image"
+    />
+
+    <meta
+      name="twitter:title"
+      content={title}
+    />
+
+    <meta
+      name="twitter:description"
+      content={description}
+    />
+
+    <meta
+      name="twitter:image"
+      content="https://tracko-ps5.netlify.app/images/og-cover.jpg"
+    />
+
+    {jsonLd && (
+      <script
+        type="application/ld+json"
+        set:html={JSON.stringify(jsonLd)}
+      />
+    )}
+
+    <link
+      rel="preconnect"
+      href="https://fonts.googleapis.com"
+    />
+
+    <link
+      rel="preconnect"
+      href="https://fonts.gstatic.com"
+      crossorigin
+    />
+
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;650;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+
+  <body>
+    <header
+      class="site-header"
+      id="site-header"
+    >
+      <div class="container site-header__inner">
+
+        <a
+          href="/"
+          class="site-header__logo"
+          aria-label="Tracko — Accueil"
+        >
+          <svg
+            width="17"
+            height="17"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+            class="site-header__logo-mark"
+          >
+            <path
+              d="M11 3h7a2 2 0 0 1 2 2v7a2 2 0 0 1-.586 1.414l-8 8a2 2 0 0 1-2.828 0l-7-7a2 2 0 0 1 0-2.828l8-8A2 2 0 0 1 11 3Z"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linejoin="round"
+            />
+
+            <circle
+              cx="15.5"
+              cy="8.5"
+              r="1.25"
+              fill="currentColor"
+            />
+          </svg>
+
+          <span>Tracko</span>
+        </a>
+
+        <a
+          href="/alertes"
+          class="site-header__alerts"
+        >
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path
+              d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+
+            <path
+              d="M13.73 21a2 2 0 0 1-3.46 0"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+
+          <span>Mes alertes</span>
+        </a>
+
+      </div>
+    </header>
+
+    <main>
+      <slot />
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">
+        <p>
+          Tracko compare les prix publiés par les marchands partenaires.
+          Certains liens sont des liens d'affiliation.
+        </p>
+
+        <p>
+          Comparatif indépendant, sans lien officiel avec Sony/PlayStation
+          ou Rockstar Games.
+        </p>
+
+        <div class="site-footer__links">
+          <a href="/a-propos">À propos</a>
+          <a href="/guides/digital-vs-lecteur">Guides</a>
+          <a
+            href="/administration"
+            class="site-footer__admin"
+          >
+            Administration
+          </a>
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      const header = document.getElementById("site-header");
+
+      const onScroll = () => {
+        if (!header) return;
+
+        header.classList.toggle(
+          "is-scrolled",
+          window.scrollY > 8
+        );
+      };
+
+      window.addEventListener(
+        "scroll",
+        onScroll,
+        { passive: true }
+      );
+
+      onScroll();
+
+      if ("IntersectionObserver" in window) {
+        const observer = new IntersectionObserver(
+          (entries) => {
+            for (const entry of entries) {
+              if (entry.isIntersecting) {
+                entry.target.classList.add("is-visible");
+                observer.unobserve(entry.target);
+              }
+            }
+          },
+          { threshold: 0.1 }
+        );
+
+        document
+          .querySelectorAll(".fade-in")
+          .forEach((el) => observer.observe(el));
+      } else {
+        document
+          .querySelectorAll(".fade-in")
+          .forEach((el) =>
+            el.classList.add("is-visible")
+          );
+      }
+    </script>
+  </body>
+</html>
+
+<style>
+  /* ========================================
+     HEADER
+     ======================================== */
+
+  .site-header {
+    position: sticky;
+
+    top: 0;
+
+    z-index: 10;
+
+    border-bottom: 1px solid transparent;
+
+    background: transparent;
+
+    transition:
+      background 240ms var(--ease-premium),
+      border-color 240ms var(--ease-premium),
+      backdrop-filter 240ms var(--ease-premium);
+  }
+
+  .site-header.is-scrolled {
+    background: rgba(250, 249, 246, 0.82);
+
+    backdrop-filter: blur(12px) saturate(1.25);
+    -webkit-backdrop-filter: blur(12px) saturate(1.25);
+
+    border-bottom-color: rgba(230, 227, 218, 0.8);
+  }
+
+  .site-header__inner {
+    display: flex;
+
+    align-items: center;
+    justify-content: space-between;
+
+    min-height: 68px;
+
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+
+  .site-header__logo {
+    display: inline-flex;
+
+    align-items: center;
+
+    gap: 7px;
+
+    font-family: var(--font-display);
+
+    font-size: 18px;
+
+    font-weight: 650;
+
+    letter-spacing: -0.035em;
+
+    color: var(--color-text-primary);
+  }
+
+  .site-header__logo-mark {
+    color: var(--color-accent);
+
+    transition:
+      transform 220ms var(--ease-premium);
+  }
+
+  .site-header__logo:hover .site-header__logo-mark {
+    transform: rotate(-4deg) scale(1.04);
+  }
+
+  .site-header__alerts {
+    display: inline-flex;
+
+    align-items: center;
+
+    gap: 6px;
+
+    min-height: 32px;
+
+    padding: 5px 9px;
+
+    border-radius: 999px;
+
+    font-size: 12px;
+    font-weight: 500;
+
+    color: var(--color-text-secondary);
+
+    transition:
+      color 180ms var(--ease-premium),
+      background 180ms var(--ease-premium);
+  }
+
+  .site-header__alerts:hover {
+    color: var(--color-accent);
+
+    background: var(--color-accent-soft);
+  }
+
+  /* ========================================
+     FOOTER
+     ======================================== */
+
+  .site-footer {
+    border-top: 0.5px solid var(--color-border);
+
+    margin-top: 64px;
+
+    padding: 28px 0 44px;
+
+    font-size: 12.5px;
+
+    line-height: 1.6;
+
+    color: var(--color-text-muted);
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 6px;
+  }
+
+  .site-footer__links {
+    display: flex;
+
+    flex-wrap: wrap;
+
+    align-items: center;
+
+    gap: 8px;
+
+    margin-top: 10px;
+  }
+
+  .site-footer__links a:not(:last-child)::after {
+    content: "·";
+
+    margin-left: 8px;
+
+    color: var(--color-border-strong);
+  }
+
+  .site-footer a {
+    color: var(--color-text-secondary);
+
+    transition:
+      color var(--dur-fast) var(--ease-premium);
+  }
+
+  .site-footer a:hover {
+    color: var(--color-accent);
+  }
+
+  .site-footer__admin {
+    color: var(--color-text-muted) !important;
+  }
+
+  /* ========================================
+     MOBILE
+     ======================================== */
+
+  @media (max-width: 640px) {
+    .site-header__inner {
+      min-height: 62px;
+    }
+
+    .site-header__logo {
+      font-size: 17px;
+    }
+
+    .site-header__alerts {
+      font-size: 11.5px;
+    }
+  }
+</style>

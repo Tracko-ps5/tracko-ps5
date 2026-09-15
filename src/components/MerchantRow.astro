@@ -1,0 +1,318 @@
+```astro
+---
+import type { Merchant } from "../data/mock-ps5";
+
+interface Props {
+  merchant: Merchant;
+  isBest: boolean;
+}
+
+const { merchant, isBest } = Astro.props;
+
+const formattedDate = new Date(merchant.updatedAt).toLocaleDateString("fr-FR", {
+  day: "numeric",
+  month: "short",
+});
+
+/*
+ * Logos marchands.
+ *
+ * Les quatre premiers utilisaient déjà des ressources
+ * qui fonctionnaient dans TRACKO.
+ *
+ * Boulanger utilise maintenant son logo officiel
+ * hébergé sur son CDN officiel.
+ *
+ * PlayStation est préparé pour une future intégration.
+ */
+const merchantLogos: Record<string, string> = {
+  amazon: "https://www.amazon.fr/favicon.ico",
+
+  fnac: "https://www.fnac.com/favicon.ico",
+
+  cdiscount: "https://www.cdiscount.com/favicon.ico",
+
+  boulanger:
+    "https://boulanger.scene7.com/is/image/Boulanger/LOGO2%20boulsign%20boulanger%20RVB?fmt=png-alpha",
+
+  backmarket: "https://www.backmarket.fr/favicon.ico",
+
+  playstation: "https://www.playstation.com/favicon.ico",
+};
+
+/*
+ * Normalisation du nom du marchand.
+ */
+const normalizedName = merchant.name
+  .toLowerCase()
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .replace(/[^a-z0-9]/g, "");
+
+const merchantAliases: Record<string, string> = {
+  amazonfr: "amazon",
+  amazoncom: "amazon",
+
+  fnaccom: "fnac",
+  fnacfr: "fnac",
+
+  cdiscountcom: "cdiscount",
+  cdiscountfr: "cdiscount",
+
+  boulangercom: "boulanger",
+  boulangerfr: "boulanger",
+
+  backmarketfr: "backmarket",
+  backmarketcom: "backmarket",
+
+  playstationcom: "playstation",
+  playstationfr: "playstation",
+};
+
+const merchantKey =
+  merchantAliases[normalizedName] ?? normalizedName;
+
+const merchantLogo = merchantLogos[merchantKey] ?? null;
+
+/*
+ * Initiale utilisée uniquement si un marchand inconnu
+ * est ajouté plus tard et qu'aucun logo n'est défini.
+ */
+const merchantInitial =
+  merchant.name.trim().charAt(0).toUpperCase();
+---
+
+<div class="merchant-row">
+  <div class="merchant-row__name">
+    {merchantLogo ? (
+      <div class="merchant-row__logo-container">
+        <img
+          class="merchant-row__logo"
+          src={merchantLogo}
+          alt=""
+          width="28"
+          height="28"
+          loading="lazy"
+          decoding="async"
+          referrerpolicy="no-referrer"
+          aria-hidden="true"
+        />
+      </div>
+    ) : (
+      <div
+        class="merchant-row__fallback"
+        aria-hidden="true"
+      >
+        {merchantInitial}
+      </div>
+    )}
+
+    <div class="merchant-row__identity">
+      <p class="merchant-row__name-text">
+        {merchant.name}
+      </p>
+
+      <div
+        class="merchant-row__stars"
+        aria-label={`Note de confiance : ${merchant.trustRating} sur 5`}
+      >
+        {Array.from({ length: 5 }).map((_, i) => (
+          <span
+            class={i < merchant.trustRating ? "is-filled" : ""}
+            aria-hidden="true"
+          >
+            ★
+          </span>
+        ))}
+      </div>
+    </div>
+  </div>
+
+  <div class="merchant-row__meta">
+    <span class="merchant-row__availability">
+      {merchant.available ? "En stock" : "Rupture"}
+    </span>
+
+    <span class="merchant-row__updated">
+      Màj {formattedDate}
+    </span>
+  </div>
+
+  <div class="merchant-row__price">
+    <span>{merchant.price} €</span>
+
+    {isBest && (
+      <span class="badge badge--excellent">
+        Meilleur prix
+      </span>
+    )}
+  </div>
+
+  <a
+    class:list={[
+      "button",
+      isBest && "button--primary",
+    ]}
+    href={merchant.available ? merchant.url : undefined}
+    aria-disabled={!merchant.available}
+  >
+    Voir l'offre
+  </a>
+</div>
+
+<style>
+  .merchant-row {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1.2fr auto;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 0.5px solid var(--color-border);
+    font-size: 14px;
+  }
+
+  .merchant-row:last-child {
+    border-bottom: none;
+  }
+
+  .merchant-row__name {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .merchant-row__identity {
+    min-width: 0;
+  }
+
+  /*
+   * Conteneur fixe pour tous les logos.
+   * Cela garantit que chaque marchand occupe exactement
+   * le même espace et évite tout décalage vertical.
+   */
+  .merchant-row__logo-container,
+  .merchant-row__fallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    flex: 0 0 28px;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .merchant-row__logo-container {
+    background: transparent;
+  }
+
+  .merchant-row__logo {
+    display: block;
+    width: 28px;
+    height: 28px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    outline: none;
+    object-fit: contain;
+    object-position: center;
+  }
+
+  /*
+   * Fallback uniquement pour un éventuel nouveau marchand
+   * qui ne possède pas encore de logo dans merchantLogos.
+   */
+  .merchant-row__fallback {
+    border-radius: 7px;
+    background: var(--color-surface-muted);
+    color: var(--color-text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .merchant-row__name-text {
+    margin: 0 0 2px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /*
+   * Bloc étoiles strictement dimensionné.
+   * Aucun espace ou élément supplémentaire sous le logo.
+   */
+  .merchant-row__stars {
+    display: flex;
+    align-items: center;
+    width: max-content;
+    height: 12px;
+    margin: 0;
+    padding: 0;
+    font-size: 11px;
+    line-height: 12px;
+    letter-spacing: 1px;
+    color: var(--color-border-strong);
+    white-space: nowrap;
+  }
+
+  .merchant-row__stars .is-filled {
+    color: #c9a227;
+  }
+
+  .merchant-row__meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 12px;
+    color: var(--color-text-secondary);
+  }
+
+  .merchant-row__updated {
+    color: var(--color-text-muted);
+  }
+
+  .merchant-row__price {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-weight: 500;
+  }
+
+  .merchant-row__price .badge {
+    white-space: nowrap;
+  }
+
+  @media (max-width: 560px) {
+    .merchant-row {
+      grid-template-columns: 1fr 1fr;
+      row-gap: 8px;
+    }
+
+    .merchant-row__meta {
+      order: 3;
+    }
+
+    .merchant-row__price {
+      justify-content: flex-end;
+      text-align: right;
+    }
+
+    .merchant-row > a {
+      order: 4;
+      grid-column: 1 / -1;
+    }
+
+    .merchant-row__logo-container,
+    .merchant-row__fallback,
+    .merchant-row__logo {
+      width: 26px;
+      height: 26px;
+      flex-basis: 26px;
+    }
+  }
+</style>
+```

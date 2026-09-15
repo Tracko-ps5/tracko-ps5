@@ -1,0 +1,278 @@
+---
+import { gtaBannerConfig } from "../data/gta-config";
+---
+
+<!--
+  Ce bloc est un EMPLACEMENT pour ton bandeau. Le fond (image/illustration
+  complète GTA VI) est à toi de l'ajouter — voir gta-config.ts pour le chemin
+  d'image attendu (bannerImagePath). Tant que le fichier n'existe pas encore,
+  l'emplacement neutre avec un repère visuel reste affiché à la place (le
+  onerror ci-dessous retire l'image proprement si elle ne charge pas).
+  Le compte à rebours reste toujours affiché en incrustation, en haut à droite.
+-->
+<div class="countdown-banner-wrap">
+  <a
+    class="countdown-banner"
+    href={gtaBannerConfig.preorderUrl}
+    target="_blank"
+    rel="noopener noreferrer"
+    aria-label="Précommander GTA VI sur le site officiel Rockstar Games"
+  >
+    <div class="countdown-banner__placeholder-label">
+      Emplacement bandeau — voir src/data/gta-config.ts
+    </div>
+
+    {gtaBannerConfig.bannerImagePath && (
+      <img
+        class="countdown-banner__image"
+        src={gtaBannerConfig.bannerImagePath}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        onerror="this.remove(); this.closest('.countdown-banner')?.classList.add('countdown-banner--empty');"
+      />
+    )}
+
+    <div class="countdown-banner__timer" data-release={gtaBannerConfig.releaseDateISO}>
+      <p class="countdown-banner__timer-label">Sortie dans</p>
+      <div class="countdown-banner__units">
+        <div class="countdown-banner__unit">
+          <span class="countdown-banner__value" data-unit="days">--</span>
+          <span class="countdown-banner__unit-label">j</span>
+        </div>
+        <div class="countdown-banner__unit">
+          <span class="countdown-banner__value" data-unit="hours">--</span>
+          <span class="countdown-banner__unit-label">h</span>
+        </div>
+        <div class="countdown-banner__unit">
+          <span class="countdown-banner__value" data-unit="minutes">--</span>
+          <span class="countdown-banner__unit-label">m</span>
+        </div>
+        <div class="countdown-banner__unit">
+          <span class="countdown-banner__value" data-unit="seconds">--</span>
+          <span class="countdown-banner__unit-label">s</span>
+        </div>
+      </div>
+    </div>
+  </a>
+
+  <a
+    class="gta-preorder-btn"
+    href={gtaBannerConfig.preorderUrl}
+    target="_blank"
+    rel="noopener noreferrer"
+  >
+    Précommander GTA VI →
+  </a>
+</div>
+
+<script>
+  function tick() {
+    document.querySelectorAll<HTMLElement>("[data-release]").forEach((el) => {
+      const release = new Date(el.dataset.release!).getTime();
+      const now = Date.now();
+      const diff = Math.max(release - now, 0);
+
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+      const minutes = Math.floor((diff / (1000 * 60)) % 60);
+      const seconds = Math.floor((diff / 1000) % 60);
+
+      const set = (unit: string, value: number) => {
+        const target = el.querySelector<HTMLElement>(`[data-unit="${unit}"]`);
+        if (target) target.textContent = String(value).padStart(2, "0");
+      };
+
+      set("days", days);
+      set("hours", hours);
+      set("minutes", minutes);
+      set("seconds", seconds);
+    });
+  }
+
+  tick();
+  setInterval(tick, 1000);
+</script>
+
+<style>
+  .countdown-banner-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .countdown-banner {
+    display: block;
+    color: inherit;
+    text-decoration: none;
+    position: relative;
+    aspect-ratio: 2.35 / 1;
+    min-height: 180px;
+    max-width: min(700px, 88%);
+    margin: 0 auto;
+    border-radius: var(--radius-card);
+    background-color: #14140f;
+    overflow: hidden;
+  }
+
+  .gta-preorder-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 10px 18px;
+    border-radius: 999px;
+    border: 0.5px solid var(--color-border-strong);
+    color: var(--color-text-primary);
+    transition: background var(--dur-fast) var(--ease-premium), border-color var(--dur-fast) var(--ease-premium), transform var(--dur-fast) var(--ease-premium);
+  }
+
+  .gta-preorder-btn:hover {
+    background: var(--color-surface-muted);
+    border-color: var(--color-accent);
+    transform: translateY(-1px);
+  }
+
+  /* Tant qu'aucune image ne charge, le bandeau se réduit et se centre —
+     il repasse automatiquement au format ci-dessus dès qu'un visuel valide
+     est déposé dans /public/images/ (voir gta-config.ts). */
+  .countdown-banner.countdown-banner--empty {
+    aspect-ratio: unset;
+    min-height: 0;
+    height: auto;
+    max-width: none;
+    margin: 0;
+    padding: 28px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    background-color: var(--color-surface-muted);
+  }
+
+  .countdown-banner--empty .countdown-banner__placeholder-label {
+    position: static;
+    inset: auto;
+    margin: 0;
+    padding: 0;
+    border: none;
+    color: var(--color-text-muted);
+  }
+
+  .countdown-banner--empty .countdown-banner__timer {
+    position: static;
+    background: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    padding: 0;
+    color: var(--color-text-primary);
+  }
+
+  .countdown-banner--empty .countdown-banner__timer-label {
+    color: var(--color-text-muted);
+  }
+
+  .countdown-banner--empty .countdown-banner__unit-label {
+    color: var(--color-text-muted);
+  }
+
+  .countdown-banner__image {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 35%;
+    animation: banner-breathe 16s ease-in-out infinite alternate;
+  }
+
+  @keyframes banner-breathe {
+    from {
+      transform: scale(1);
+    }
+    to {
+      transform: scale(1.06);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .countdown-banner__image {
+      animation: none;
+    }
+  }
+
+  .countdown-banner__placeholder-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 20px;
+    font-size: 12px;
+    color: rgba(250, 249, 246, 0.4);
+    border: 1px dashed rgba(250, 249, 246, 0.2);
+    border-radius: var(--radius-card);
+    margin: 8px;
+  }
+
+  .countdown-banner__timer {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    background: rgba(10, 10, 8, 0.58);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-radius: var(--radius-control);
+    padding: 10px 14px;
+    color: #faf9f6;
+  }
+
+  .countdown-banner__timer-label {
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: rgba(250, 249, 246, 0.65);
+    margin-bottom: 5px;
+    text-align: center;
+  }
+
+  .countdown-banner__units {
+    display: flex;
+    gap: 10px;
+  }
+
+  .countdown-banner__unit {
+    display: flex;
+    align-items: baseline;
+    gap: 2px;
+  }
+
+  .countdown-banner__value {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .countdown-banner__unit-label {
+    font-size: 11px;
+    color: rgba(250, 249, 246, 0.55);
+  }
+
+  @media (max-width: 480px) {
+    .countdown-banner__timer {
+      top: 10px;
+      right: 10px;
+      padding: 8px 10px;
+    }
+
+    .countdown-banner__value {
+      font-size: 14px;
+    }
+  }
+</style>

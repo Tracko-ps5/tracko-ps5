@@ -1,0 +1,59 @@
+---
+export const prerender = true;
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout
+  title="À propos — Tracko"
+  description="Comment Tracko compare les prix des PS5, et notre politique d'affiliation."
+>
+  <div class="container about">
+    <h1>À propos de Tracko</h1>
+    <p>
+      Tracko compare les prix de la PlayStation 5 chez plusieurs marchands pour t'aider
+      à trouver le meilleur moment pour acheter.
+    </p>
+    <h2>Affiliation</h2>
+    <p>
+      Certains liens vers les marchands sont des liens d'affiliation : si tu achètes via
+      ces liens, Tracko peut percevoir une commission, sans surcoût pour toi.
+    </p>
+    <h2>Données</h2>
+    <p>
+      Pendant la phase de lancement, les prix affichés sur Tracko sont des données de
+      démonstration utilisées pour construire le site. Ils seront remplacés par des
+      prix réels dès que notre système de collecte sera en place.
+    </p>
+    <h2>Marques citées</h2>
+    <p>
+      Tracko est un comparatif indépendant et n'est affilié à aucun des marchands ou
+      éditeurs cités. PlayStation et PS5 sont des marques déposées de Sony Interactive
+      Entertainment. Grand Theft Auto (GTA) est une marque déposée de Take-Two
+      Interactive / Rockstar Games. Leur mention sur ce site est uniquement
+      informative et ne suggère aucun partenariat officiel.
+    </p>
+  </div>
+</Layout>
+
+<style>
+  .about {
+    padding: 48px 24px 64px;
+    max-width: 560px;
+  }
+
+  .about h1 {
+    font-size: 22px;
+    margin-bottom: 20px;
+  }
+
+  .about h2 {
+    font-size: 15px;
+    margin-top: 28px;
+    margin-bottom: 8px;
+  }
+
+  .about p {
+    font-size: 14px;
+    color: var(--color-text-secondary);
+  }
+</style>

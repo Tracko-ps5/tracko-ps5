@@ -1,0 +1,67 @@
+---
+import type { Family } from "../data/mock-ps5";
+import { familyAccents } from "../data/accents";
+import { consoleImagePaths } from "../data/console-images";
+
+interface Props {
+  slug: Family["slug"];
+  size?: number;
+}
+
+const { slug, size = 58 } = Astro.props;
+
+const heightRatio: Record<Family["slug"], number> = {
+  ps5: 90 / 72,
+  "ps5-slim": 76 / 72,
+  "ps5-pro": 92 / 72,
+};
+
+const height = Math.round(size * heightRatio[slug]);
+const accent = familyAccents[slug];
+const photoPath = consoleImagePaths[slug];
+---
+
+<div
+  class="console-illustration"
+  style={`width:${size}px; --accent-mid:${accent.mid}; --accent-deep:${accent.deep};`}
+>
+  {photoPath && (
+    <img
+      class="console-photo-overlay"
+      src={photoPath}
+      alt=""
+      loading="lazy"
+      decoding="async"
+      onerror="this.remove();"
+    />
+  )}
+</div>
+
+<style>
+  .console-illustration {
+    position: relative;
+    display: inline-flex;
+    align-items: flex-end;
+    justify-content: center;
+
+    height: auto;
+  }
+
+  .console-photo-overlay {
+    display: block;
+
+    width: 100%;
+    height: auto;
+
+    object-fit: contain;
+
+    filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.28));
+
+    transition: transform 320ms var(--ease-premium, ease);
+  }
+
+  a:hover .console-photo-overlay,
+  .family-card:hover .console-photo-overlay {
+    transform: translateY(-3px) scale(1.03);
+  }
+</style>

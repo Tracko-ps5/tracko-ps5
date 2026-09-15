@@ -1,0 +1,240 @@
+---
+import type { PricePoint } from "../data/mock-ps5";
+
+interface Props {
+  history: PricePoint[]; // doit couvrir au moins 365 jours
+  isRealHistory: boolean; // false = données de démo, le graphique reste masqué
+}
+
+const { history, isRealHistory } = Astro.props;
+
+const width = 640;
+const height = 180;
+const padding = 24;
+
+function buildPath(points: PricePoint[]) {
+  const prices = points.map((p) => p.price);
+  const min = Math.min(...prices);
+  const max = Math.max(...prices);
+  const range = max - min || 1;
+
+  const coords = points.map((p, i) => {
+    const x = padding + (i / (points.length - 1)) * (width - padding * 2);
+    const y = height - padding - ((p.price - min) / range) * (height - padding * 2);
+    return { x, y };
+  });
+
+  const pathD = coords.map((c, i) => `${i === 0 ? "M" : "L"} ${c.x.toFixed(1)} ${c.y.toFixed(1)}`).join(" ");
+  const areaD = `${pathD} L ${coords[coords.length - 1].x.toFixed(1)} ${height - padding} L ${coords[0].x.toFixed(1)} ${height - padding} Z`;
+
+  return { pathD, areaD };
+}
+
+const initial = history.slice(-30);
+const { pathD, areaD } = buildPath(initial);
+const firstLabel = initial[0]?.date.slice(5).replace("-", "/");
+const lastLabel = initial[initial.length - 1]?.date.slice(5).replace("-", "/");
+
+const currentPrice = history[history.length - 1].price;
+const avg30 = Math.round(initial.reduce((a, p) => a + p.price, 0) / initial.length);
+const min30 = Math.min(...initial.map((p) => p.price));
+---
+
+{isRealHistory ? (
+<div class="price-chart" data-history={JSON.stringify(history)}>
+  <div class="price-chart__periods" role="tablist" aria-label="Choisir la période">
+    <button type="button" class="price-chart__period is-active" data-days="7" role="tab" aria-selected="true">7 j</button>
+    <button type="button" class="price-chart__period" data-days="30" role="tab" aria-selected="false">30 j</button>
+    <button type="button" class="price-chart__period" data-days="90" role="tab" aria-selected="false">3 mois</button>
+    <button type="button" class="price-chart__period" data-days="180" role="tab" aria-selected="false">6 mois</button>
+    <button type="button" class="price-chart__period" data-days="365" role="tab" aria-selected="false">1 an</button>
+  </div>
+
+  <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height} role="img" aria-label="Évolution du prix">
+    <path class="price-chart__area" d={areaD} fill="var(--color-surface-muted)" />
+    <path class="price-chart__line" d={pathD} fill="none" stroke="var(--color-accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
+  </svg>
+  <div class="price-chart__labels">
+    <span class="price-chart__label-start">{firstLabel}</span>
+    <span class="price-chart__label-end">{lastLabel}</span>
+  </div>
+
+  <div class="price-chart__stats">
+    <div>
+      <p class="price-chart__stats-label">Prix actuel</p>
+      <p class="price-chart__stats-value">{currentPrice} €</p>
+    </div>
+    <div>
+      <p class="price-chart__stats-label">Prix moyen</p>
+      <p class="price-chart__stats-value" data-stat="avg">{avg30} €</p>
+    </div>
+    <div>
+      <p class="price-chart__stats-label">Plus bas</p>
+      <p class="price-chart__stats-value" data-stat="min">{min30} €</p>
+    </div>
+  </div>
+</div>
+) : (
+<div class="price-chart-pending">
+  <p class="price-chart__pending-title">Historique bientôt disponible</p>
+  <p class="price-chart__pending-text">Le suivi de ce modèle vient de démarrer — l'évolution du prix s'affichera ici dès que nous aurons assez de données réelles.</p>
+</div>
+)}
+
+<script>
+  interface PricePoint {
+    date: string;
+    price: number;
+  }
+
+  const width = 640;
+  const height = 180;
+  const padding = 24;
+
+  function buildPath(points: PricePoint[]) {
+    const prices = points.map((p) => p.price);
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    const range = max - min || 1;
+
+    const coords = points.map((p, i) => {
+      const x = padding + (i / (points.length - 1)) * (width - padding * 2);
+      const y = height - padding - ((p.price - min) / range) * (height - padding * 2);
+      return { x, y };
+    });
+
+    const pathD = coords.map((c, i) => `${i === 0 ? "M" : "L"} ${c.x.toFixed(1)} ${c.y.toFixed(1)}`).join(" ");
+    const areaD = `${pathD} L ${coords[coords.length - 1].x.toFixed(1)} ${height - padding} L ${coords[0].x.toFixed(1)} ${height - padding} Z`;
+    return { pathD, areaD };
+  }
+
+  function animateLine(path: SVGPathElement) {
+    const length = path.getTotalLength();
+    path.style.transition = "none";
+    path.style.strokeDasharray = String(length);
+    path.style.strokeDashoffset = String(length);
+    requestAnimationFrame(() => {
+      path.style.transition = "stroke-dashoffset 700ms cubic-bezier(0.22, 1, 0.36, 1)";
+      path.style.strokeDashoffset = "0";
+    });
+  }
+
+  document.querySelectorAll<HTMLElement>(".price-chart").forEach((chart) => {
+    const history: PricePoint[] = JSON.parse(chart.dataset.history || "[]");
+    const buttons = chart.querySelectorAll<HTMLButtonElement>(".price-chart__period");
+    const line = chart.querySelector<SVGPathElement>(".price-chart__line");
+    const area = chart.querySelector<SVGPathElement>(".price-chart__area");
+    const labelStart = chart.querySelector(".price-chart__label-start");
+    const labelEnd = chart.querySelector(".price-chart__label-end");
+    const avgEl = chart.querySelector('[data-stat="avg"]');
+    const minEl = chart.querySelector('[data-stat="min"]');
+
+    buttons.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        buttons.forEach((b) => {
+          b.classList.remove("is-active");
+          b.setAttribute("aria-selected", "false");
+        });
+        btn.classList.add("is-active");
+        btn.setAttribute("aria-selected", "true");
+
+        const days = Number(btn.dataset.days);
+        const slice = history.slice(-days);
+        const { pathD, areaD } = buildPath(slice);
+
+        if (line) {
+          line.setAttribute("d", pathD);
+          animateLine(line);
+        }
+        if (area) area.setAttribute("d", areaD);
+        if (labelStart) labelStart.textContent = slice[0]?.date.slice(5).replace("-", "/") ?? "";
+        if (labelEnd) labelEnd.textContent = slice[slice.length - 1]?.date.slice(5).replace("-", "/") ?? "";
+
+        const avg = Math.round(slice.reduce((a, p) => a + p.price, 0) / slice.length);
+        const min = Math.min(...slice.map((p) => p.price));
+        if (avgEl) avgEl.textContent = `${avg} €`;
+        if (minEl) minEl.textContent = `${min} €`;
+      });
+    });
+  });
+</script>
+
+<style>
+  .price-chart-pending {
+    padding: 32px 20px;
+    text-align: center;
+  }
+
+  .price-chart__pending-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  .price-chart__pending-text {
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    max-width: 40ch;
+    margin: 0 auto;
+    line-height: 1.5;
+  }
+
+  .price-chart {
+    width: 100%;
+  }
+
+  .price-chart__periods {
+    display: flex;
+    gap: 6px;
+    padding: 0 24px 16px;
+    flex-wrap: wrap;
+  }
+
+  .price-chart__period {
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 0.5px solid var(--color-border-strong);
+    background: transparent;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: background 180ms var(--ease-premium), color 180ms var(--ease-premium);
+  }
+
+  .price-chart__period.is-active {
+    background: var(--color-text-primary);
+    color: var(--color-bg);
+    border-color: var(--color-text-primary);
+  }
+
+  .price-chart__labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--color-text-muted);
+    padding: 0 24px;
+    margin-top: 4px;
+  }
+
+  .price-chart__stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    padding: 20px 24px 0;
+    margin-top: 16px;
+    border-top: 0.5px solid var(--color-border);
+  }
+
+  .price-chart__stats-label {
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    margin-bottom: 4px;
+  }
+
+  .price-chart__stats-value {
+    font-family: var(--font-display);
+    font-size: 17px;
+  }
+</style>

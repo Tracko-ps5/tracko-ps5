@@ -1,0 +1,723 @@
+```astro
+---
+export const prerender = false;
+import Layout from "../../layouts/Layout.astro";
+import ConsoleIllustration from "../../components/ConsoleIllustration.astro";
+import { getFamily, priceLevelLabel } from "../../data/mock-ps5";
+import { getLiveVariant } from "../../lib/live-data";
+
+const family = getFamily(Astro.params.family ?? "");
+if (!family) {
+  return new Response(null, { status: 404 });
+}
+
+const editionVariants = {
+  neuf: {
+    digital: (await getLiveVariant(family.slug, "neuf", "digital"))!,
+    lecteur: (await getLiveVariant(family.slug, "neuf", "lecteur"))!,
+  },
+  reconditionne: {
+    digital: (await getLiveVariant(family.slug, "reconditionne", "digital"))!,
+    lecteur: (await getLiveVariant(family.slug, "reconditionne", "lecteur"))!,
+  },
+};
+
+const breadcrumbJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    {
+      "@type": "ListItem",
+      position: 1,
+      name: "Accueil",
+      item: "https://tracko-ps5.netlify.app/",
+    },
+    {
+      "@type": "ListItem",
+      position: 2,
+      name: family.name,
+    },
+  ],
+};
+---
+
+<Layout
+  title={`${family.name} — choisis ta version | Tracko`}
+  description={`Compare les prix de la ${family.name} en neuf ou reconditionné, digital ou avec lecteur.`}
+  jsonLd={breadcrumbJsonLd}
+>
+  <main class="container family-page">
+    <a href="/" class="back-link">
+      <span class="back-link__arrow">←</span>
+      <span>Tous les modèles</span>
+    </a>
+
+    <section class="family-hero fade-in">
+      <div class="family-hero__visual" aria-hidden="true">
+        <div class="family-hero__halo"></div>
+        <div class="family-hero__console">
+          <ConsoleIllustration slug={family.slug} size={88} />
+        </div>
+      </div>
+
+      <div class="family-hero__content">
+        <span class="family-hero__eyebrow">PlayStation 5</span>
+        <h1>{family.name}</h1>
+        <p>{family.tagline}</p>
+      </div>
+    </section>
+
+    <section class="selection-section fade-in">
+      <div class="selection-heading">
+        <div>
+          <span class="selection-heading__eyebrow">Configuration</span>
+          <h2>Choisis ta version</h2>
+        </div>
+      </div>
+
+      <div
+        class="edition-toggle"
+        role="tablist"
+        aria-label="Choisir l'état de l'appareil"
+      >
+        <button
+          type="button"
+          class="edition-toggle__option is-active"
+          data-edition="neuf"
+          role="tab"
+          aria-selected="true"
+        >
+          Neuf
+        </button>
+
+        <button
+          type="button"
+          class="edition-toggle__option"
+          data-edition="reconditionne"
+          role="tab"
+          aria-selected="false"
+        >
+          Reconditionné
+        </button>
+      </div>
+
+      <div class="version-cards">
+        {(["neuf", "reconditionne"] as const).map((edition) => (
+          <div
+            class="version-panel"
+            data-panel={edition}
+            style={edition === "reconditionne" ? "display:none" : ""}
+          >
+            {(["digital", "lecteur"] as const).map((version) => {
+              const v = editionVariants[edition][version];
+
+              return (
+                <a
+                  class="version-card"
+                  href={`/ps5/${family.slug}/${edition}/${version}`}
+                >
+                  <div class="version-card__visual">
+                    <span class="version-card__number">
+                      {version === "digital" ? "01" : "02"}
+                    </span>
+
+                    <div class="version-card__title">
+                      <span class="version-card__type">
+                        PS5
+                      </span>
+
+                      <strong>
+                        {version === "digital" ? "Digital" : "Avec lecteur"}
+                      </strong>
+                    </div>
+
+                    <span class={`price-status price-status--${v.priceLevel}`}>
+                      <span class="price-status__dot"></span>
+                      {priceLevelLabel(v.priceLevel)}
+                    </span>
+                  </div>
+
+                  <div class="version-card__bottom">
+                    <div class="version-card__price-wrap">
+                      <span class="version-card__price-label">
+                        À partir de
+                      </span>
+
+                      <span class="version-card__price">
+                        {v.currentPrice} €
+                      </span>
+                    </div>
+
+                    <span class="version-card__cta">
+                      Voir les offres
+                      <span aria-hidden="true">→</span>
+                    </span>
+                  </div>
+                </a>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </section>
+  </main>
+</Layout>
+
+<script>
+  const toggleButtons =
+    document.querySelectorAll<HTMLButtonElement>(".edition-toggle__option");
+
+  const panels =
+    document.querySelectorAll<HTMLElement>(".version-panel");
+
+  toggleButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      toggleButtons.forEach((button) => {
+        button.classList.remove("is-active");
+        button.setAttribute("aria-selected", "false");
+      });
+
+      btn.classList.add("is-active");
+      btn.setAttribute("aria-selected", "true");
+
+      panels.forEach((panel) => {
+        panel.style.display =
+          panel.dataset.panel === btn.dataset.edition ? "" : "none";
+      });
+    });
+  });
+</script>
+
+<style>
+  .family-page {
+    max-width: 720px;
+    padding: 28px 24px 72px;
+  }
+
+  /* ─────────────────────────────────────────
+     RETOUR
+  ───────────────────────────────────────── */
+
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    width: fit-content;
+    margin-bottom: 30px;
+    color: var(--color-text-secondary);
+    font-size: 13px;
+    font-weight: 500;
+    text-decoration: none;
+    transition:
+      color var(--dur-fast) ease,
+      transform var(--dur-fast) ease;
+  }
+
+  .back-link:hover {
+    color: var(--color-text-primary);
+    transform: translateX(-2px);
+  }
+
+  .back-link__arrow {
+    font-size: 17px;
+    line-height: 1;
+  }
+
+  /* ─────────────────────────────────────────
+     HERO PS5
+  ───────────────────────────────────────── */
+
+  .family-hero {
+    position: relative;
+    display: grid;
+    grid-template-columns: 190px 1fr;
+    align-items: center;
+    gap: 34px;
+    min-height: 190px;
+    margin-bottom: 34px;
+    padding: 24px 28px;
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    border-radius: 24px;
+    background:
+      linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.98) 0%,
+        rgba(247, 248, 252, 0.96) 100%
+      );
+    box-shadow:
+      0 12px 34px rgba(25, 31, 50, 0.055),
+      0 2px 8px rgba(25, 31, 50, 0.035);
+  }
+
+  .family-hero::after {
+    content: "";
+    position: absolute;
+    right: -90px;
+    top: -110px;
+    width: 260px;
+    height: 260px;
+    border-radius: 50%;
+    background: rgba(72, 105, 214, 0.065);
+    filter: blur(4px);
+    pointer-events: none;
+  }
+
+  .family-hero__visual {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 150px;
+  }
+
+  .family-hero__halo {
+    position: absolute;
+    width: 132px;
+    height: 132px;
+    border-radius: 50%;
+    background: var(--color-accent-blue-soft);
+  }
+
+  .family-hero__console {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform: scale(1.08);
+  }
+
+  .family-hero__content {
+    position: relative;
+    z-index: 1;
+  }
+
+  .family-hero__eyebrow {
+    display: block;
+    margin-bottom: 7px;
+    color: var(--color-accent-blue);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+  }
+
+  .family-hero__content h1 {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-size: clamp(36px, 6vw, 50px);
+    line-height: 0.98;
+    letter-spacing: -0.055em;
+  }
+
+  .family-hero__content p {
+    max-width: 390px;
+    margin: 11px 0 0;
+    color: var(--color-text-secondary);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* ─────────────────────────────────────────
+     SÉLECTION
+  ───────────────────────────────────────── */
+
+  .selection-section {
+    margin-top: 10px;
+  }
+
+  .selection-heading {
+    margin-bottom: 14px;
+  }
+
+  .selection-heading__eyebrow {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--color-text-muted);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .selection-heading h2 {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-size: 22px;
+    line-height: 1.2;
+    letter-spacing: -0.025em;
+  }
+
+  /* ─────────────────────────────────────────
+     NEUF / RECONDITIONNÉ
+  ───────────────────────────────────────── */
+
+  .edition-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 4px;
+    margin-bottom: 18px;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    background: var(--color-surface-muted);
+  }
+
+  .edition-toggle__option {
+    min-height: 36px;
+    padding: 7px 19px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--color-text-secondary);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+      background var(--dur-fast) ease,
+      color var(--dur-fast) ease,
+      box-shadow var(--dur-fast) ease,
+      transform var(--dur-fast) ease;
+  }
+
+  .edition-toggle__option:hover {
+    color: var(--color-text-primary);
+  }
+
+  .edition-toggle__option.is-active {
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+    box-shadow:
+      0 2px 7px rgba(23, 22, 17, 0.08),
+      0 1px 2px rgba(23, 22, 17, 0.04);
+  }
+
+  /* ─────────────────────────────────────────
+     CARTES DIGITAL / LECTEUR
+  ───────────────────────────────────────── */
+
+  .version-cards {
+    display: grid;
+  }
+
+  .version-panel {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .version-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-height: 205px;
+    padding: 20px;
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    border-radius: 18px;
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+    text-decoration: none;
+    box-shadow: 0 4px 14px rgba(25, 31, 50, 0.035);
+    transition:
+      transform 180ms ease,
+      border-color 180ms ease,
+      box-shadow 180ms ease;
+  }
+
+  .version-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(
+      90deg,
+      var(--color-accent-blue),
+      rgba(72, 105, 214, 0.15)
+    );
+    opacity: 0;
+    transition: opacity 180ms ease;
+  }
+
+  .version-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--color-accent-blue-border);
+    box-shadow:
+      0 14px 28px rgba(25, 31, 50, 0.08),
+      0 3px 8px rgba(72, 105, 214, 0.045);
+  }
+
+  .version-card:hover::before {
+    opacity: 1;
+  }
+
+  .version-card__visual {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 76px;
+  }
+
+  .version-card__number {
+    color: var(--color-text-muted);
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+
+  .version-card__title {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 3px;
+    padding: 0 6px;
+  }
+
+  .version-card__type {
+    color: var(--color-text-muted);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .version-card__title strong {
+    color: var(--color-text-primary);
+    font-size: 17px;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+  }
+
+  /* ─────────────────────────────────────────
+     BADGE PRIX
+  ───────────────────────────────────────── */
+
+  .price-status {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 7px;
+    border-radius: 999px;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .price-status__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+
+  .price-status--excellent,
+  .price-status--bon {
+    background: var(--color-tier-bon-bg);
+    color: var(--color-tier-bon-text);
+  }
+
+  .price-status--excellent .price-status__dot,
+  .price-status--bon .price-status__dot {
+    background: #43a52f;
+  }
+
+  .price-status--moyen {
+    background: var(--color-tier-moyen-bg);
+    color: var(--color-tier-moyen-text);
+  }
+
+  .price-status--moyen .price-status__dot {
+    background: #d98b22;
+  }
+
+  .price-status--mauvais,
+  .price-status--élevé,
+  .price-status--tres-cher {
+    background: var(--color-tier-mauvais-bg);
+    color: var(--color-tier-mauvais-text);
+  }
+
+  .price-status--mauvais .price-status__dot,
+  .price-status--élevé .price-status__dot,
+  .price-status--tres-cher .price-status__dot {
+    background: #d94a3a;
+  }
+
+  /* ─────────────────────────────────────────
+     PRIX + CTA
+  ───────────────────────────────────────── */
+
+  .version-card__bottom {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: auto;
+    padding-top: 16px;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .version-card__price-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .version-card__price-label {
+    color: var(--color-text-muted);
+    font-size: 9px;
+    font-weight: 500;
+  }
+
+  .version-card__price {
+    color: var(--color-text-primary);
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.045em;
+  }
+
+  .version-card__cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding-bottom: 2px;
+    color: var(--color-accent-blue);
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .version-card__cta span {
+    font-size: 15px;
+    line-height: 1;
+    transition: transform 180ms ease;
+  }
+
+  .version-card:hover .version-card__cta span {
+    transform: translateX(3px);
+  }
+
+  /* ─────────────────────────────────────────
+     MOBILE
+  ───────────────────────────────────────── */
+
+  @media (max-width: 640px) {
+    .family-page {
+      padding: 22px 16px 54px;
+    }
+
+    .back-link {
+      margin-bottom: 24px;
+    }
+
+    .family-hero {
+      grid-template-columns: 1fr;
+      gap: 14px;
+      min-height: 0;
+      margin-bottom: 28px;
+      padding: 24px 20px 25px;
+      text-align: center;
+    }
+
+    .family-hero__visual {
+      height: 118px;
+    }
+
+    .family-hero__halo {
+      width: 108px;
+      height: 108px;
+    }
+
+    .family-hero__console {
+      transform: scale(0.98);
+    }
+
+    .family-hero__content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .family-hero__content h1 {
+      font-size: 38px;
+    }
+
+    .family-hero__content p {
+      max-width: 330px;
+      font-size: 13px;
+    }
+
+    .selection-heading h2 {
+      font-size: 20px;
+    }
+
+    .edition-toggle {
+      width: 100%;
+      margin-bottom: 15px;
+    }
+
+    .edition-toggle__option {
+      flex: 1;
+    }
+
+    .version-panel {
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    .version-card {
+      min-height: 170px;
+      padding: 18px;
+      border-radius: 16px;
+    }
+
+    .version-card__visual {
+      min-height: 58px;
+    }
+
+    .version-card__title strong {
+      font-size: 16px;
+    }
+
+    .version-card__price {
+      font-size: 26px;
+    }
+  }
+
+  @media (max-width: 380px) {
+    .family-hero {
+      padding-left: 16px;
+      padding-right: 16px;
+    }
+
+    .version-card__bottom {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .version-card__cta {
+      padding-bottom: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .back-link,
+    .edition-toggle__option,
+    .version-card,
+    .version-card::before,
+    .version-card__cta span {
+      transition: none;
+    }
+  }
+</style>
+```

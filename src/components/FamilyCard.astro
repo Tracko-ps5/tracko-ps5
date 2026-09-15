@@ -1,0 +1,342 @@
+---
+import type { Family, Variant, Edition } from "../data/mock-ps5";
+import { simpleTier, simpleTierLabel } from "../data/mock-ps5";
+import ConsoleIllustration from "./ConsoleIllustration.astro";
+
+interface Props {
+  family: Family;
+  variants: Record<Edition, { digital: Variant; lecteur: Variant }>;
+  index?: number;
+}
+
+const { family, variants, index = 0 } = Astro.props;
+const editions: Edition[] = ["neuf", "reconditionne"];
+---
+
+<a class="family-card" href={`/ps5/${family.slug}`}>
+  <div class="family-card__visual" aria-hidden="true">
+    <ConsoleIllustration slug={family.slug} size={64} />
+  </div>
+
+  <div class="family-card__info">
+    <p class="family-card__name">{family.name}</p>
+    <p class="family-card__tagline">{family.tagline}</p>
+
+    {editions.map((edition) => (
+      <div class="family-card__prices" data-edition-block={edition}>
+        {(["digital", "lecteur"] as const).map((v) => {
+          const variant = variants[edition][v];
+          const tier = simpleTier(variant.priceLevel);
+
+          return (
+            <div class={`family-card__price-row family-card__price-row--${tier}`}>
+              <span
+                class={`tier-dot tier-dot--${tier}`}
+                title={simpleTierLabel(variant.priceLevel)}
+              ></span>
+
+              <span class="family-card__price-label">
+                {v === "digital" ? "Digital" : "Avec lecteur"}
+              </span>
+
+              <span class="family-card__price-value">
+                {variant.currentPrice} €
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    ))}
+  </div>
+
+  <span class="family-card__cta" aria-hidden="true">→</span>
+</a>
+
+<style>
+  .family-card {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+
+    position: relative;
+    overflow: hidden;
+
+    padding: 18px 22px;
+
+    text-align: left;
+
+    border-radius: var(--radius-card);
+
+    background:
+      radial-gradient(
+        circle at 0% 0%,
+        rgba(72, 105, 214, 0.055),
+        transparent 34%
+      ),
+      var(--color-surface);
+
+    border: 1px solid var(--color-border);
+
+    box-shadow:
+      0 1px 2px rgba(23, 22, 17, 0.04);
+
+    color: var(--color-text-primary);
+
+    transition:
+      transform 220ms var(--ease-premium),
+      box-shadow 220ms var(--ease-premium),
+      border-color 220ms var(--ease-premium),
+      background 220ms var(--ease-premium);
+  }
+
+  .family-card::after {
+    content: "";
+
+    position: absolute;
+
+    left: 0;
+    top: 0;
+    bottom: 0;
+
+    width: 3px;
+
+    border-radius: 18px 0 0 18px;
+
+    background: linear-gradient(
+      180deg,
+      rgba(72, 105, 214, 0.75),
+      rgba(72, 105, 214, 0.12)
+    );
+
+    opacity: 0.65;
+
+    transition:
+      opacity 220ms var(--ease-premium),
+      width 220ms var(--ease-premium);
+  }
+
+  .family-card:hover {
+    transform: translateY(-3px);
+
+    border-color: rgba(72, 105, 214, 0.28);
+
+    background:
+      radial-gradient(
+        circle at 0% 0%,
+        rgba(72, 105, 214, 0.085),
+        transparent 38%
+      ),
+      var(--color-surface);
+
+    box-shadow:
+      0 14px 32px -18px rgba(23, 22, 17, 0.2),
+      0 8px 24px -20px rgba(72, 105, 214, 0.35);
+  }
+
+  .family-card:hover::after {
+    width: 4px;
+    opacity: 0.9;
+  }
+
+  .family-card__visual {
+    position: relative;
+
+    flex-shrink: 0;
+
+    height: 76px;
+    width: 76px;
+
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+
+    transition:
+      transform var(--dur-fast) var(--ease-premium);
+  }
+
+  .family-card:hover .family-card__visual {
+    transform: scale(1.05);
+  }
+
+  .family-card__info {
+    position: relative;
+
+    flex: 1;
+    min-width: 0;
+  }
+
+  .family-card__name {
+    font-size: 18px;
+    font-weight: 600;
+
+    margin-bottom: 2px;
+
+    letter-spacing: -0.025em;
+  }
+
+  .family-card__tagline {
+    font-size: 12px;
+
+    color: var(--color-text-secondary);
+
+    margin-bottom: 10px;
+  }
+
+  .family-card__prices {
+    display: flex;
+    flex-direction: column;
+
+    gap: 5px;
+  }
+
+  [data-edition-selected="neuf"]
+    .family-card__prices[data-edition-block="reconditionne"],
+  [data-edition-selected="reconditionne"]
+    .family-card__prices[data-edition-block="neuf"] {
+    display: none;
+  }
+
+  .family-card__price-row {
+    display: flex;
+    align-items: center;
+
+    gap: 7px;
+
+    min-height: 20px;
+
+    font-size: 13px;
+  }
+
+  .tier-dot {
+    width: 8px;
+    height: 8px;
+
+    border-radius: 50%;
+
+    flex-shrink: 0;
+
+    box-shadow:
+      0 0 0 3px transparent;
+
+    transition:
+      box-shadow 180ms var(--ease-premium);
+  }
+
+  .tier-dot--bon {
+    background: #3ecf6e;
+  }
+
+  .tier-dot--moyen {
+    background: #f2a93b;
+  }
+
+  .tier-dot--mauvais {
+    background: #f2574c;
+  }
+
+  .family-card:hover .tier-dot--bon {
+    box-shadow: 0 0 0 3px rgba(62, 207, 110, 0.12);
+  }
+
+  .family-card:hover .tier-dot--moyen {
+    box-shadow: 0 0 0 3px rgba(242, 169, 59, 0.13);
+  }
+
+  .family-card:hover .tier-dot--mauvais {
+    box-shadow: 0 0 0 3px rgba(242, 87, 76, 0.13);
+  }
+
+  .family-card__price-label {
+    color: var(--color-text-secondary);
+
+    flex: 1;
+  }
+
+  .family-card__price-value {
+    font-weight: 650;
+
+    color: var(--color-text-primary);
+
+    letter-spacing: -0.015em;
+
+    transition: color 180ms var(--ease-premium);
+  }
+
+  .family-card__price-row--bon .family-card__price-value {
+    color: var(--color-tier-bon-text);
+  }
+
+  .family-card__price-row--moyen .family-card__price-value {
+    color: var(--color-tier-moyen-text);
+  }
+
+  .family-card__price-row--mauvais .family-card__price-value {
+    color: var(--color-tier-mauvais-text);
+  }
+
+  .family-card__cta {
+    position: relative;
+
+    flex-shrink: 0;
+
+    width: 28px;
+    height: 28px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+
+    font-size: 17px;
+
+    color: var(--color-accent);
+
+    background: var(--color-accent-soft);
+
+    transition:
+      transform 220ms var(--ease-premium),
+      background 220ms var(--ease-premium),
+      color 220ms var(--ease-premium);
+  }
+
+  .family-card:hover .family-card__cta {
+    transform: translateX(3px);
+
+    background: var(--color-accent);
+
+    color: var(--color-accent-text);
+  }
+
+  @media (max-width: 420px) {
+    .family-card {
+      gap: 12px;
+      padding: 14px 16px;
+    }
+
+    .family-card__visual {
+      height: 60px;
+      width: 58px;
+    }
+
+    .family-card__name {
+      font-size: 16px;
+    }
+
+    .family-card__tagline {
+      font-size: 11px;
+      margin-bottom: 8px;
+    }
+
+    .family-card__price-row {
+      font-size: 12px;
+    }
+
+    .family-card__cta {
+      width: 26px;
+      height: 26px;
+
+      font-size: 16px;
+    }
+  }
+</style>

@@ -1,0 +1,215 @@
+---
+export const prerender = true;
+import Layout from "../../layouts/Layout.astro";
+import { families } from "../../data/mock-ps5";
+
+const jsonLd = [
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Accueil", item: "https://tracko-ps5.netlify.app/" },
+      { "@type": "ListItem", position: 2, name: "PS5 Digital vs Avec lecteur" },
+    ],
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: [
+      {
+        "@type": "Question",
+        name: "Peut-on ajouter un lecteur à une PS5 Digital plus tard ?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Sur certains modèles (notamment la PS5 Slim Digital), Sony propose un lecteur Ultra HD Blu-ray détachable en accessoire officiel. Ce n'est pas le cas sur tous les modèles ni dans toutes les régions : vérifie la compatibilité exacte avant d'acheter en comptant dessus.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "La version Digital est-elle moins puissante que la version avec lecteur ?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Non. À modèle égal, les performances (puce, RAM, vitesse du SSD) sont strictement identiques. Seule l'absence de lecteur de disque change.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "Peut-on jouer aux jeux d'occasion en version Digital ?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Non, une version Digital ne lit aucun disque : impossible d'insérer un jeu physique, neuf ou d'occasion. Tous les jeux doivent être achetés et téléchargés en ligne.",
+        },
+      },
+    ],
+  },
+];
+---
+
+<Layout
+  title="PS5 Digital ou Avec lecteur : quelle version choisir ? | Tracko"
+  description="Différences réelles entre la PS5 Digital et la version avec lecteur Blu-ray, à qui chaque version convient, et l'impact sur le prix."
+  jsonLd={jsonLd}
+>
+  <article class="container guide">
+    <a href="/" class="back-link">← Accueil</a>
+    <p class="guide__eyebrow">Guide</p>
+    <h1>PS5 Digital ou Avec lecteur : quelle version choisir ?</h1>
+
+    <div class="guide__tldr">
+      <p>
+        <strong>En résumé :</strong> les deux versions ont exactement les mêmes performances. Seule différence : la
+        version "Avec lecteur" intègre un lecteur Blu-ray permettant de jouer à des jeux en boîte (neufs ou
+        d'occasion) et de lire des films. La version Digital coûte généralement 50 à 60 € de moins, mais oblige à
+        tout acheter en dématérialisé.
+      </p>
+    </div>
+
+    <h2>La seule vraie différence : le lecteur de disque</h2>
+    <p>
+      Une PS5 "Digital" et une PS5 "Avec lecteur" utilisent la même puce, la même quantité de mémoire et le même
+      SSD. Aucune des deux n'est plus rapide ou plus puissante que l'autre. Le seul composant physique qui change
+      est la présence — ou non — d'un lecteur de disque Ultra HD Blu-ray.
+    </p>
+
+    <h2>Choisis Digital si...</h2>
+    <ul>
+      <li>Tu achètes déjà tes jeux principalement en dématérialisé (PlayStation Store, abonnements).</li>
+      <li>Tu ne regardes pas de Blu-ray/DVD sur ta console.</li>
+      <li>Le prix plus bas compte plus que la flexibilité de revendre tes jeux.</li>
+    </ul>
+
+    <h2>Choisis Avec lecteur si...</h2>
+    <ul>
+      <li>Tu achètes ou revends des jeux d'occasion (souvent bien moins chers en boîte qu'en dématérialisé).</li>
+      <li>Tu prêtes tes jeux à des proches, ou empruntes les leurs.</li>
+      <li>Tu regardes des Blu-ray/DVD sur ta console.</li>
+      <li>Tu préfères garder une bibliothèque physique, indépendante d'un compte en ligne.</li>
+    </ul>
+
+    <h2>Et le prix, concrètement ?</h2>
+    <p>
+      L'écart de prix entre les deux versions tourne généralement autour de 50 à 60 € sur les trois familles PS5,
+      neuf comme reconditionné. Sur le long terme, si tu comptes acheter ne serait-ce que quelques jeux d'occasion,
+      l'écart se rattrape vite grâce aux économies sur les jeux physiques.
+    </p>
+
+    <h2>Comparer les prix par modèle</h2>
+    <ul class="guide__links">
+      {families.map((f) => (
+        <li><a href={`/ps5/${f.slug}`}>{f.name} — comparer Digital et Avec lecteur →</a></li>
+      ))}
+    </ul>
+
+    <h2>Questions fréquentes</h2>
+    <div class="guide__faq">
+      <div class="guide__faq-item">
+        <p class="guide__faq-q">Peut-on ajouter un lecteur à une PS5 Digital plus tard ?</p>
+        <p>
+          Sur certains modèles (notamment la PS5 Slim Digital), Sony propose un lecteur Ultra HD Blu-ray détachable
+          en accessoire officiel. Ce n'est pas le cas sur tous les modèles ni dans toutes les régions : vérifie la
+          compatibilité exacte avant d'acheter en comptant dessus.
+        </p>
+      </div>
+      <div class="guide__faq-item">
+        <p class="guide__faq-q">La version Digital est-elle moins puissante ?</p>
+        <p>Non, les performances sont strictement identiques à modèle égal.</p>
+      </div>
+      <div class="guide__faq-item">
+        <p class="guide__faq-q">Peut-on jouer aux jeux d'occasion en version Digital ?</p>
+        <p>Non — sans lecteur, impossible d'insérer un disque de jeu, neuf ou d'occasion.</p>
+      </div>
+    </div>
+
+    <p class="guide__cross-link">
+      <a href="/guides/neuf-vs-reconditionne">Voir aussi : PS5 Neuf ou Reconditionné, quelle différence ? →</a>
+    </p>
+  </article>
+</Layout>
+
+<style>
+  .guide {
+    padding: 40px 24px 80px;
+    max-width: 640px;
+  }
+
+  .back-link {
+    display: inline-block;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    margin-bottom: 20px;
+  }
+
+  .guide__eyebrow {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-text-muted);
+    margin-bottom: 8px;
+  }
+
+  .guide h1 {
+    font-size: 26px;
+    margin-bottom: 20px;
+  }
+
+  .guide__tldr {
+    background: var(--color-surface-muted);
+    border-radius: var(--radius-control);
+    padding: 16px 18px;
+    font-size: 14px;
+    line-height: 1.6;
+    margin-bottom: 32px;
+  }
+
+  .guide h2 {
+    font-size: 18px;
+    margin: 32px 0 12px;
+  }
+
+  .guide p,
+  .guide li {
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--color-text-secondary);
+  }
+
+  .guide ul {
+    padding-left: 20px;
+    margin: 0;
+  }
+
+  .guide ul li {
+    margin-bottom: 6px;
+  }
+
+  .guide__links {
+    list-style: none;
+    padding: 0;
+  }
+
+  .guide__links li {
+    margin-bottom: 8px;
+  }
+
+  .guide__links a {
+    color: var(--color-accent);
+    font-weight: 500;
+  }
+
+  .guide__faq-item {
+    margin-bottom: 18px;
+  }
+
+  .guide__faq-q {
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin-bottom: 4px;
+  }
+
+  .guide__cross-link {
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 0.5px solid var(--color-border);
+    font-size: 13px;
+  }
+</style>

@@ -1,0 +1,214 @@
+---
+export const prerender = true;
+import Layout from "../../layouts/Layout.astro";
+import { families } from "../../data/mock-ps5";
+
+const jsonLd = [
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Accueil", item: "https://tracko-ps5.netlify.app/" },
+      { "@type": "ListItem", position: 2, name: "PS5 Neuf vs Reconditionné" },
+    ],
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: [
+      {
+        "@type": "Question",
+        name: "Une PS5 reconditionnée a-t-elle une garantie ?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Oui, chez les marchands sérieux — généralement entre 6 et 24 mois selon le vendeur et le niveau de certification. Vérifie toujours la durée de garantie affichée avant d'acheter, elle varie beaucoup d'un marchand à l'autre.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "Combien peut-on économiser en achetant reconditionné ?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "En général entre 15 et 20 % par rapport au prix neuf équivalent, parfois plus sur les modèles plus anciens ou moins demandés.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "Le reconditionné inclut-il la manette et les câbles ?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Ça dépend du vendeur et de l'annonce — certains reconditionneurs livrent la console seule, d'autres avec une manette (parfois reconditionnée elle aussi). Vérifie toujours le contenu exact du colis avant d'acheter.",
+        },
+      },
+    ],
+  },
+];
+---
+
+<Layout
+  title="PS5 Neuf ou Reconditionné : quelle différence et quel choix ? | Tracko"
+  description="Ce que signifie vraiment 'reconditionné' pour une PS5, l'écart de prix réel avec le neuf, la garantie, et dans quels cas ça vaut le coup."
+  jsonLd={jsonLd}
+>
+  <article class="container guide">
+    <a href="/" class="back-link">← Accueil</a>
+    <p class="guide__eyebrow">Guide</p>
+    <h1>PS5 Neuf ou Reconditionné : quelle différence ?</h1>
+
+    <div class="guide__tldr">
+      <p>
+        <strong>En résumé :</strong> une PS5 reconditionnée est une console d'occasion inspectée, testée et
+        remise en état par un professionnel, revendue avec une garantie (généralement 6 à 24 mois). Elle coûte
+        environ 15 à 20 % de moins qu'une console neuve équivalente, au prix d'un risque (minime chez un vendeur
+        sérieux) d'usure cosmétique ou d'une garantie plus courte que le neuf.
+      </p>
+    </div>
+
+    <h2>Que veut vraiment dire "reconditionné" ?</h2>
+    <p>
+      Une console reconditionnée n'est pas juste une console d'occasion revendue telle quelle. Chez un
+      reconditionneur sérieux, elle passe par un contrôle technique (tests des ports, du lecteur, de la
+      ventilation), un nettoyage, parfois un remplacement de pièces d'usure, puis est classée selon son état
+      esthétique (souvent "Correct", "Bon état", "Très bon état" ou équivalent). Elle est ensuite revendue avec
+      une garantie — c'est cette garantie qui distingue vraiment le reconditionné certifié d'une simple annonce
+      entre particuliers.
+    </p>
+
+    <h2>Neuf : les avantages</h2>
+    <ul>
+      <li>Garantie constructeur complète (généralement 2 ans en France).</li>
+      <li>Aucune trace d'usure, boîte scellée.</li>
+      <li>Accessoires et câbles garantis d'origine et complets.</li>
+    </ul>
+
+    <h2>Reconditionné : les avantages</h2>
+    <ul>
+      <li>Prix inférieur de 15 à 20 % environ par rapport au neuf.</li>
+      <li>Choix plus responsable (réemploi plutôt que production neuve).</li>
+      <li>Chez un vendeur sérieux, un contrôle qualité et une garantie réelle restent inclus.</li>
+    </ul>
+
+    <h2>À vérifier avant d'acheter reconditionné</h2>
+    <ul>
+      <li>La durée exacte de la garantie (elle varie fortement d'un marchand à l'autre).</li>
+      <li>Le niveau d'état annoncé (esthétique uniquement, ou aussi fonctionnel).</li>
+      <li>Ce qui est inclus dans le colis (manette, câbles, socle).</li>
+      <li>La réputation du vendeur — Back Market, par exemple, impose ses propres standards de contrôle à ses vendeurs partenaires.</li>
+    </ul>
+
+    <h2>Comparer les prix neuf vs reconditionné par modèle</h2>
+    <ul class="guide__links">
+      {families.map((f) => (
+        <li><a href={`/ps5/${f.slug}`}>{f.name} — comparer Neuf et Reconditionné →</a></li>
+      ))}
+    </ul>
+
+    <h2>Questions fréquentes</h2>
+    <div class="guide__faq">
+      <div class="guide__faq-item">
+        <p class="guide__faq-q">Une PS5 reconditionnée a-t-elle une garantie ?</p>
+        <p>Oui chez les marchands sérieux, généralement entre 6 et 24 mois selon le vendeur.</p>
+      </div>
+      <div class="guide__faq-item">
+        <p class="guide__faq-q">Combien peut-on économiser ?</p>
+        <p>En général entre 15 et 20 % par rapport au prix neuf équivalent.</p>
+      </div>
+      <div class="guide__faq-item">
+        <p class="guide__faq-q">La manette et les câbles sont-ils inclus ?</p>
+        <p>Ça dépend du vendeur — vérifie toujours le contenu exact de l'annonce avant d'acheter.</p>
+      </div>
+    </div>
+
+    <p class="guide__cross-link">
+      <a href="/guides/digital-vs-lecteur">Voir aussi : PS5 Digital ou Avec lecteur, laquelle choisir ? →</a>
+    </p>
+  </article>
+</Layout>
+
+<style>
+  .guide {
+    padding: 40px 24px 80px;
+    max-width: 640px;
+  }
+
+  .back-link {
+    display: inline-block;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    margin-bottom: 20px;
+  }
+
+  .guide__eyebrow {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-text-muted);
+    margin-bottom: 8px;
+  }
+
+  .guide h1 {
+    font-size: 26px;
+    margin-bottom: 20px;
+  }
+
+  .guide__tldr {
+    background: var(--color-surface-muted);
+    border-radius: var(--radius-control);
+    padding: 16px 18px;
+    font-size: 14px;
+    line-height: 1.6;
+    margin-bottom: 32px;
+  }
+
+  .guide h2 {
+    font-size: 18px;
+    margin: 32px 0 12px;
+  }
+
+  .guide p,
+  .guide li {
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--color-text-secondary);
+  }
+
+  .guide ul {
+    padding-left: 20px;
+    margin: 0;
+  }
+
+  .guide ul li {
+    margin-bottom: 6px;
+  }
+
+  .guide__links {
+    list-style: none;
+    padding: 0;
+  }
+
+  .guide__links li {
+    margin-bottom: 8px;
+  }
+
+  .guide__links a {
+    color: var(--color-accent);
+    font-weight: 500;
+  }
+
+  .guide__faq-item {
+    margin-bottom: 18px;
+  }
+
+  .guide__faq-q {
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin-bottom: 4px;
+  }
+
+  .guide__cross-link {
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 0.5px solid var(--color-border);
+    font-size: 13px;
+  }
+</style>

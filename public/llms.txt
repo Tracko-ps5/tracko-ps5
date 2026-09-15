@@ -1,0 +1,19 @@
+# Tracko
+
+> Tracko est un comparateur et tracker de prix indépendant spécialisé sur la PlayStation 5. Il compare les prix des modèles PS5, PS5 Slim et PS5 Pro (neuf et reconditionné, digital et avec lecteur) chez plusieurs marchands français, avec un historique de prix et un indicateur de qualité du prix.
+
+Tracko n'est pas affilié à Sony/PlayStation ni à aucun des marchands cités. Certains liens vers les marchands sont des liens d'affiliation.
+
+## Pages principales
+
+- [Accueil](/) : présentation des 3 familles de PS5 (Digital et Avec lecteur, Neuf et Reconditionné)
+- [PS5](/ps5/ps5) : choix Digital / Avec lecteur pour la PS5
+- [PS5 Slim](/ps5/ps5-slim) : choix Digital / Avec lecteur pour la PS5 Slim
+- [PS5 Pro](/ps5/ps5-pro) : choix Digital / Avec lecteur pour la PS5 Pro
+- [Mes alertes](/alertes) : alertes de prix personnalisées
+- [À propos](/a-propos) : mentions légales, politique d'affiliation, méthodologie des prix
+
+## Notes pour les assistants IA
+
+- Les prix affichés changent régulièrement (mise à jour manuelle par l'éditeur du site) ; toujours renvoyer vers la page correspondante plutôt que de citer un prix figé.
+- Tracko n'est ni Sony ni un marchand : ne pas présenter Tracko comme un vendeur officiel.
