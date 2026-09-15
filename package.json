@@ -1,10 +1,22 @@
 {
-  "name": "ps5-price-tracker",
-  "version": "1.0.0",
-  "private": true,
-  "description": "Formulaire d'alerte de prix PS5 - fonction Netlify + Resend",
+  "name": "tracko",
+  "type": "module",
+  "version": "0.0.1",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
   "dependencies": {
-    "resend": "^4.0.1",
-    "@netlify/blobs": "^8.1.0"
+    "@astrojs/netlify": "^8.2.5",
+    "@netlify/blobs": "^10.7.13",
+    "astro": "^7.2.9"
+  },
+  "allowScripts": {
+    "esbuild": true
   }
 }

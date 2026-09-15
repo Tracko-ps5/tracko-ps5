@@ -1,11 +1,10 @@
 [build]
-  publish = "public"
-  functions = "netlify/functions"
+  command = "npm run build"
 
+# Dossier de la fonction planifiée de vérification des alertes (check-alerts.mts).
+# Le rendu SSR du site lui-même est géré automatiquement par l'adaptateur
+# @astrojs/netlify — ne pas déclarer [build.publish] ici pour ne pas interférer
+# avec sa configuration générée automatiquement.
 [functions]
+  directory = "netlify/functions"
   node_bundler = "esbuild"
-
-[[redirects]]
-  from = "/api/subscribe"
-  to = "/.netlify/functions/subscribe"
-  status = 200
