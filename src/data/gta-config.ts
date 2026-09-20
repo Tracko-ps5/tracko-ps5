@@ -12,5 +12,5 @@ export const gtaBannerConfig = {
   bannerImagePath: "/images/gta-vi-banner.jpg" as string | null,
 
   // Page officielle de précommande Rockstar Store (pas un revendeur tiers).
-  preorderUrl: "https://store.rockstargames.com/game/buy-gta-vi",
+  preorderUrl: "https://store.rockstargames.com/fr/game/buy-gta-vi",
 };

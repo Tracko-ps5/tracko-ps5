@@ -1,9 +1,8 @@
-```astro
 ---
 export const prerender = false;
 import Layout from "../../layouts/Layout.astro";
 import ConsoleIllustration from "../../components/ConsoleIllustration.astro";
-import { getFamily, priceLevelLabel } from "../../data/mock-ps5";
+import { getFamily, priceLevelLabel, versionsForFamily } from "../../data/mock-ps5";
 import { getLiveVariant } from "../../lib/live-data";
 
 const family = getFamily(Astro.params.family ?? "");
@@ -11,14 +10,19 @@ if (!family) {
   return new Response(null, { status: 404 });
 }
 
+// La PS5 Pro n'a qu'une seule référence (pas de version "avec lecteur"
+// distincte) — on ne va chercher/afficher la version "lecteur" que pour les
+// familles qui l'ont réellement.
+const hasLecteur = versionsForFamily(family.slug).includes("lecteur");
+
 const editionVariants = {
   neuf: {
     digital: (await getLiveVariant(family.slug, "neuf", "digital"))!,
-    lecteur: (await getLiveVariant(family.slug, "neuf", "lecteur"))!,
+    lecteur: hasLecteur ? await getLiveVariant(family.slug, "neuf", "lecteur") : undefined,
   },
   reconditionne: {
     digital: (await getLiveVariant(family.slug, "reconditionne", "digital"))!,
-    lecteur: (await getLiveVariant(family.slug, "reconditionne", "lecteur"))!,
+    lecteur: hasLecteur ? await getLiveVariant(family.slug, "reconditionne", "lecteur") : undefined,
   },
 };
 
@@ -43,7 +47,7 @@ const breadcrumbJsonLd = {
 
 <Layout
   title={`${family.name} — choisis ta version | Tracko`}
-  description={`Compare les prix de la ${family.name} en neuf ou reconditionné, digital ou avec lecteur.`}
+  description={`Compare les prix de la ${family.name} en neuf ou reconditionné${hasLecteur ? ", digital ou avec lecteur" : ""}.`}
   jsonLd={breadcrumbJsonLd}
 >
   <main class="container family-page">
@@ -104,12 +108,13 @@ const breadcrumbJsonLd = {
       <div class="version-cards">
         {(["neuf", "reconditionne"] as const).map((edition) => (
           <div
-            class="version-panel"
+            class:list={["version-panel", !hasLecteur && "version-panel--single"]}
             data-panel={edition}
             style={edition === "reconditionne" ? "display:none" : ""}
           >
             {(["digital", "lecteur"] as const).map((version) => {
               const v = editionVariants[edition][version];
+              if (!v) return null;
 
               return (
                 <a
@@ -117,22 +122,25 @@ const breadcrumbJsonLd = {
                   href={`/ps5/${family.slug}/${edition}/${version}`}
                 >
                   <div class="version-card__visual">
-                    <span class="version-card__number">
-                      {version === "digital" ? "01" : "02"}
-                    </span>
+                    {hasLecteur && (
+                      <span class="version-card__number">
+                        {version === "digital" ? "01" : "02"}
+                      </span>
+                    )}
 
                     <div class="version-card__title">
                       <span class="version-card__type">
                         PS5
                       </span>
 
-                      <strong>
-                        {version === "digital" ? "Digital" : "Avec lecteur"}
-                      </strong>
+                      {hasLecteur && (
+                        <strong>
+                          {version === "digital" ? "Digital" : "Avec lecteur"}
+                        </strong>
+                      )}
                     </div>
 
-                    <span class={`price-status price-status--${v.priceLevel}`}>
-                      <span class="price-status__dot"></span>
+                    <span class={`badge badge--${v.priceLevel}`}>
                       {priceLevelLabel(v.priceLevel)}
                     </span>
                   </div>
@@ -408,6 +416,13 @@ const breadcrumbJsonLd = {
     gap: 14px;
   }
 
+  /* Famille à référence unique (ex. PS5 Pro) : une seule carte, pas de
+     colonne vide à côté. */
+  .version-panel--single {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 360px;
+  }
+
   .version-card {
     position: relative;
     display: flex;
@@ -496,58 +511,19 @@ const breadcrumbJsonLd = {
 
   /* ─────────────────────────────────────────
      BADGE PRIX
+     Les couleurs viennent du système global (.badge / .badge--*
+     dans src/styles/global.css) — ici on ajuste juste la taille pour
+     qu'il reste compact dans cette carte, sans dupliquer la logique
+     de couleur par statut.
   ───────────────────────────────────────── */
 
-  .price-status {
-    display: inline-flex;
+  .version-card__visual .badge {
     flex-shrink: 0;
-    align-items: center;
-    gap: 5px;
-    padding: 5px 7px;
-    border-radius: 999px;
+    padding: 5px 8px;
     font-size: 9px;
     font-weight: 700;
     line-height: 1;
     white-space: nowrap;
-  }
-
-  .price-status__dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-  }
-
-  .price-status--excellent,
-  .price-status--bon {
-    background: var(--color-tier-bon-bg);
-    color: var(--color-tier-bon-text);
-  }
-
-  .price-status--excellent .price-status__dot,
-  .price-status--bon .price-status__dot {
-    background: #43a52f;
-  }
-
-  .price-status--moyen {
-    background: var(--color-tier-moyen-bg);
-    color: var(--color-tier-moyen-text);
-  }
-
-  .price-status--moyen .price-status__dot {
-    background: #d98b22;
-  }
-
-  .price-status--mauvais,
-  .price-status--élevé,
-  .price-status--tres-cher {
-    background: var(--color-tier-mauvais-bg);
-    color: var(--color-tier-mauvais-text);
-  }
-
-  .price-status--mauvais .price-status__dot,
-  .price-status--élevé .price-status__dot,
-  .price-status--tres-cher .price-status__dot {
-    background: #d94a3a;
   }
 
   /* ─────────────────────────────────────────
@@ -720,4 +696,3 @@ const breadcrumbJsonLd = {
     }
   }
 </style>
-```

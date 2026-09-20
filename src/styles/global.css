@@ -107,6 +107,10 @@ body {
   background: var(--color-bg);
 
   line-height: 1.5;
+
+  /* Nécessaire pour le bandeau GTA VI en pleine largeur (full-bleed) plus
+     bas : évite toute barre de défilement horizontale parasite. */
+  overflow-x: hidden;
 }
 
 a {

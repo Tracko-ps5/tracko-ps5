@@ -1,4 +1,3 @@
-```astro
 ---
 import type { Merchant } from "../data/mock-ps5";
 
@@ -129,8 +128,8 @@ const merchantInitial =
   </div>
 
   <div class="merchant-row__meta">
-    <span class="merchant-row__availability">
-      {merchant.available ? "En stock" : "Rupture"}
+    <span class={`merchant-row__availability ${merchant.available ? "" : "merchant-row__availability--out"}`}>
+      {merchant.available ? "En stock" : "Indisponible"}
     </span>
 
     <span class="merchant-row__updated">
@@ -151,10 +150,12 @@ const merchantInitial =
   <a
     class:list={[
       "button",
-      isBest && "button--primary",
+      isBest && merchant.available && "button--primary",
+      !merchant.available && "button--disabled",
     ]}
     href={merchant.available ? merchant.url : undefined}
     aria-disabled={!merchant.available}
+    tabindex={merchant.available ? undefined : -1}
   >
     Voir l'offre
   </a>
@@ -270,6 +271,15 @@ const merchantInitial =
     color: var(--color-text-secondary);
   }
 
+  .merchant-row__availability {
+    color: var(--color-tier-bon-text);
+    font-weight: 600;
+  }
+
+  .merchant-row__availability--out {
+    color: var(--color-tres-cher-text);
+  }
+
   .merchant-row__updated {
     color: var(--color-text-muted);
   }
@@ -284,6 +294,15 @@ const merchantInitial =
 
   .merchant-row__price .badge {
     white-space: nowrap;
+  }
+
+  /* Offre indisponible : bouton visuellement désactivé, sans changer le
+     calcul du meilleur prix (géré ailleurs, côté [version].astro). */
+  .button--disabled,
+  .merchant-row a[aria-disabled="true"] {
+    opacity: 0.45;
+    cursor: not-allowed;
+    pointer-events: none;
   }
 
   @media (max-width: 560px) {
@@ -315,4 +334,3 @@ const merchantInitial =
     }
   }
 </style>
-```

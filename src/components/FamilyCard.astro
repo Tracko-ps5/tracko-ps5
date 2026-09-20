@@ -5,7 +5,7 @@ import ConsoleIllustration from "./ConsoleIllustration.astro";
 
 interface Props {
   family: Family;
-  variants: Record<Edition, { digital: Variant; lecteur: Variant }>;
+  variants: Record<Edition, { digital: Variant; lecteur?: Variant }>;
   index?: number;
 }
 
@@ -22,31 +22,39 @@ const editions: Edition[] = ["neuf", "reconditionne"];
     <p class="family-card__name">{family.name}</p>
     <p class="family-card__tagline">{family.tagline}</p>
 
-    {editions.map((edition) => (
-      <div class="family-card__prices" data-edition-block={edition}>
-        {(["digital", "lecteur"] as const).map((v) => {
-          const variant = variants[edition][v];
-          const tier = simpleTier(variant.priceLevel);
+    {editions.map((edition) => {
+      const hasBothVersions = Boolean(variants[edition].digital && variants[edition].lecteur);
 
-          return (
-            <div class={`family-card__price-row family-card__price-row--${tier}`}>
-              <span
-                class={`tier-dot tier-dot--${tier}`}
-                title={simpleTierLabel(variant.priceLevel)}
-              ></span>
+      return (
+        <div class="family-card__prices" data-edition-block={edition}>
+          {(["digital", "lecteur"] as const).map((v) => {
+            const variant = variants[edition][v];
+            if (!variant) return null;
 
-              <span class="family-card__price-label">
-                {v === "digital" ? "Digital" : "Avec lecteur"}
-              </span>
+            const tier = simpleTier(variant.priceLevel);
 
-              <span class="family-card__price-value">
-                {variant.currentPrice} €
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    ))}
+            return (
+              <div class={`family-card__price-row family-card__price-row--${tier}`}>
+                <span
+                  class={`tier-dot tier-dot--${tier}`}
+                  title={simpleTierLabel(variant.priceLevel)}
+                ></span>
+
+                {hasBothVersions && (
+                  <span class="family-card__price-label">
+                    {v === "digital" ? "Digital" : "Avec lecteur"}
+                  </span>
+                )}
+
+                <span class="family-card__price-value">
+                  {variant.currentPrice} €
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      );
+    })}
   </div>
 
   <span class="family-card__cta" aria-hidden="true">→</span>
@@ -189,9 +197,14 @@ const editions: Edition[] = ["neuf", "reconditionne"];
     gap: 5px;
   }
 
-  [data-edition-selected="neuf"]
+  /* Le sélecteur Neuf / Reconditionné vit sur <section data-edition-selected>
+     dans index.astro, c'est-à-dire en dehors de ce composant. Astro « scope »
+     chaque sélecteur d'un <style> local : sans :global() sur l'ancêtre, la
+     règle ne pouvait jamais correspondre et les deux éditions restaient
+     affichées en même temps. */
+  :global([data-edition-selected="neuf"])
     .family-card__prices[data-edition-block="reconditionne"],
-  [data-edition-selected="reconditionne"]
+  :global([data-edition-selected="reconditionne"])
     .family-card__prices[data-edition-block="neuf"] {
     display: none;
   }

@@ -14,10 +14,13 @@
   "dependencies": {
     "@astrojs/netlify": "^8.2.5",
     "@netlify/blobs": "^10.7.13",
-    "astro": "^7.2.9",
-    "resend": "^6.28.1"
+    "astro": "^7.2.9"
   },
   "allowScripts": {
     "esbuild": true
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "typescript": "^6.0.3"
   }
 }

@@ -97,6 +97,22 @@ export function versionLabel(v: Version): string {
   return versionLabels[v];
 }
 
+// Certaines familles n'ont qu'une seule référence console (pas de choix
+// digital/avec lecteur) : la PS5 Pro n'existe chez Sony qu'en un seul modèle
+// sans lecteur de disque intégré — le lecteur est un accessoire séparé,
+// jamais une console différente. Les offres marchands qui incluent un
+// lecteur (bundle/accessoire) restent de simples offres sur cette même
+// référence, pas une deuxième fiche produit.
+const familyVersions: Record<Family["slug"], Version[]> = {
+  ps5: ["digital", "lecteur"],
+  "ps5-slim": ["digital", "lecteur"],
+  "ps5-pro": ["digital"],
+};
+
+export function versionsForFamily(slug: Family["slug"]): Version[] {
+  return familyVersions[slug];
+}
+
 const merchantPool = [
   { id: "amazon", name: "Amazon", trustRating: 5 },
   { id: "fnac", name: "Fnac", trustRating: 4 },
@@ -192,7 +208,7 @@ function buildVariant(familySlug: Family["slug"], edition: Edition, version: Ver
 
 export const variants: Variant[] = families.flatMap((f) =>
   (["neuf", "reconditionne"] as Edition[]).flatMap((edition) =>
-    (["digital", "lecteur"] as Version[]).map((version) => buildVariant(f.slug, edition, version))
+    versionsForFamily(f.slug).map((version) => buildVariant(f.slug, edition, version))
   )
 );
 
@@ -208,7 +224,7 @@ export function getVariant(familySlug: string, edition: string, version: string)
   return variants.find((v) => v.familySlug === familySlug && v.edition === edition && v.version === version);
 }
 
-// Meilleure offre "neuf digital" toutes familles confondues, pour le bandeau homepage
-export function getBestOverallDeal(): Variant {
-  return [...variants].filter((v) => v.edition === "neuf").sort((a, b) => a.currentPrice - b.currentPrice)[0];
-}
+// Note : la sélection de la "meilleure offre globale" (toutes familles
+// confondues) vit désormais dans lib/live-data.ts (getLiveBestOverallDeal),
+// pour toujours refléter les prix live édités depuis l'administration plutôt
+// que ces données de démonstration brutes.

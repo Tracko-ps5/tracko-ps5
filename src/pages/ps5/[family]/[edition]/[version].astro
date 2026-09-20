@@ -4,7 +4,7 @@ import Layout from "../../../../layouts/Layout.astro";
 import MerchantRow from "../../../../components/MerchantRow.astro";
 import PriceChart from "../../../../components/PriceChart.astro";
 import AlertForm from "../../../../components/AlertForm.astro";
-import { getFamily, versionLabel, priceLevelLabel } from "../../../../data/mock-ps5";
+import { getFamily, versionLabel, priceLevelLabel, versionsForFamily } from "../../../../data/mock-ps5";
 import type { Version } from "../../../../data/mock-ps5";
 import { getLiveVariant } from "../../../../lib/live-data";
 
@@ -17,10 +17,21 @@ if (!family || !variant) {
 }
 
 const editionLabel = variant.edition === "neuf" ? "Neuf" : "Reconditionné";
+// La PS5 Pro n'a qu'une seule référence (pas de choix digital/avec lecteur) :
+// on n'affiche donc "Digital"/"Avec lecteur" que pour les familles qui ont
+// réellement les deux versions, pour ne jamais faire apparaître "PS5 Pro
+// Digital" comme un produit à part.
+const hasMultipleVersions = versionsForFamily(family.slug).length > 1;
 const versionLbl = versionLabel(variant.version as Version);
+const versionSuffix = hasMultipleVersions ? ` ${versionLbl}` : "";
 
-const bestMerchant = [...variant.merchants].sort((a, b) => a.price - b.price)[0];
 const sortedMerchants = [...variant.merchants].sort((a, b) => a.price - b.price);
+// Le meilleur prix doit venir d'un marchand réellement disponible — sinon on
+// afficherait une offre en rupture comme "meilleur prix" avec un CTA actif.
+// Repli sur l'ensemble des marchands uniquement si aucun n'est en stock,
+// pour rester cohérent avec le calcul de currentPrice dans live-data.ts.
+const availableMerchants = sortedMerchants.filter((m) => m.available);
+const bestMerchant = availableMerchants[0] ?? sortedMerchants[0];
 const mostRecentUpdate = [...variant.merchants].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]?.updatedAt;
 const formattedUpdate = mostRecentUpdate
   ? new Date(mostRecentUpdate).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })
@@ -29,8 +40,8 @@ const merchantPrices = variant.merchants.map((m) => m.price);
 const productJsonLd = {
   "@context": "https://schema.org",
   "@type": "Product",
-  name: `${family.name} ${editionLabel} ${versionLbl}`,
-  description: `${family.tagline} Édition ${editionLabel.toLowerCase()}, version ${versionLbl.toLowerCase()}.`,
+  name: `${family.name} ${editionLabel}${versionSuffix}`,
+  description: `${family.tagline} Édition ${editionLabel.toLowerCase()}${hasMultipleVersions ? `, version ${versionLbl.toLowerCase()}` : ""}.`,
   offers: {
     "@type": "AggregateOffer",
     priceCurrency: "EUR",
@@ -54,21 +65,21 @@ const breadcrumbJsonLd = {
   itemListElement: [
     { "@type": "ListItem", position: 1, name: "Accueil", item: "https://tracko-ps5.netlify.app/" },
     { "@type": "ListItem", position: 2, name: family.name, item: `https://tracko-ps5.netlify.app/ps5/${family.slug}` },
-    { "@type": "ListItem", position: 3, name: `${editionLabel} ${versionLbl}` },
+    { "@type": "ListItem", position: 3, name: `${editionLabel}${versionSuffix}` },
   ],
 };
 ---
 
 <Layout
-  title={`${family.name} ${editionLabel} ${versionLbl} — meilleur prix | Tracko`}
-  description={`Compare le prix de la ${family.name} ${editionLabel} ${versionLbl} chez tous les marchands. Prix actuel : ${variant.currentPrice} €.`}
+  title={`${family.name} ${editionLabel}${versionSuffix} — meilleur prix | Tracko`}
+  description={`Compare le prix de la ${family.name} ${editionLabel}${versionSuffix} chez tous les marchands. Prix actuel : ${variant.currentPrice} €.`}
   jsonLd={[productJsonLd, breadcrumbJsonLd]}
 >
   <div class="container product-page">
     <a href={`/ps5/${family.slug}`} class="back-link">← {family.name}</a>
 
     <div class="product-header fade-in">
-      <h1>{family.name} <span class="product-header__meta">{editionLabel} · {versionLbl}</span></h1>
+      <h1>{family.name} <span class="product-header__meta">{editionLabel}{hasMultipleVersions ? ` · ${versionLbl}` : ""}</span></h1>
     </div>
 
     <div class="best-price-block fade-in">
@@ -76,8 +87,12 @@ const breadcrumbJsonLd = {
       <p class="best-price-block__price">{bestMerchant.price} €</p>
       <span class={`badge badge--${variant.priceLevel}`}>{priceLevelLabel(variant.priceLevel)}</span>
       <p class="best-price-block__reason">{variant.priceLevelReason}</p>
-      <p class="best-price-block__merchant">Chez {bestMerchant.name}</p>
-      <a class="button button--primary best-price-block__cta" href={bestMerchant.url}>Voir l'offre</a>
+      <p class="best-price-block__merchant">
+        {bestMerchant.available ? `Chez ${bestMerchant.name}` : "Rupture de stock chez tous les marchands"}
+      </p>
+      {bestMerchant.available && (
+        <a class="button button--primary best-price-block__cta" href={bestMerchant.url}>Voir l'offre</a>
+      )}
     </div>
 
     <section class="section">
@@ -101,7 +116,7 @@ const breadcrumbJsonLd = {
 
     <section class="section">
       <AlertForm
-        modelName={`${family.name} ${editionLabel} ${versionLbl}`}
+        modelName={`${family.name} ${editionLabel}${versionSuffix}`}
         currentPrice={variant.currentPrice}
         familySlug={family.slug}
         edition={variant.edition}

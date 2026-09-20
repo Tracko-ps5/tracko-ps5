@@ -15,14 +15,43 @@ export interface LiveMerchant {
   trustRating: number;
 }
 
-// Clé : "familySlug:edition:version" → liste de marchands pour cette variante
-export type LiveOverrides = Record<string, LiveMerchant[]>;
+// Surcouche éditable pour une variante : la liste des marchands, plus un prix
+// de référence ("prix moyen") optionnel. Ce prix de référence sert de base au
+// badge "Bon prix"/"Excellent prix" (voir computeLevel dans mock-ps5.ts). Si
+// l'admin ne le renseigne pas, on retombe sur la moyenne des données de
+// démonstration — jamais de valeur inventée présentée comme définitive, mais
+// jamais de page cassée non plus.
+export interface VariantOverride {
+  merchants: LiveMerchant[];
+  averagePrice?: number;
+}
+
+// Clé : "familySlug:edition:version" → surcouche pour cette variante
+export type LiveOverrides = Record<string, VariantOverride>;
 
 const STORE_NAME = "tracko-admin";
 const OVERRIDES_KEY = "overrides";
 
 function variantKey(familySlug: string, edition: string, version: string): string {
   return `${familySlug}:${edition}:${version}`;
+}
+
+// Ancien format sauvegardé (avant l'ajout de averagePrice) : directement un
+// tableau de marchands par clé. On le reconnaît et on le convertit à la volée
+// pour ne jamais casser une sauvegarde déjà existante.
+function normalizeOverride(raw: unknown): VariantOverride | undefined {
+  if (!raw) return undefined;
+  if (Array.isArray(raw)) {
+    return raw.length > 0 ? { merchants: raw as LiveMerchant[] } : undefined;
+  }
+  const obj = raw as Partial<VariantOverride>;
+  if (!Array.isArray(obj.merchants) || obj.merchants.length === 0) return undefined;
+  return {
+    merchants: obj.merchants,
+    averagePrice: typeof obj.averagePrice === "number" && Number.isFinite(obj.averagePrice) && obj.averagePrice > 0
+      ? obj.averagePrice
+      : undefined,
+  };
 }
 
 export async function getLiveOverrides(): Promise<LiveOverrides> {
@@ -44,10 +73,10 @@ export async function saveLiveOverrides(overrides: LiveOverrides): Promise<void>
 
 export function applyOverride(variant: Variant, overrides: LiveOverrides): Variant {
   const key = variantKey(variant.familySlug, variant.edition, variant.version);
-  const override = overrides[key];
-  if (!override || override.length === 0) return variant;
+  const override = normalizeOverride((overrides as Record<string, unknown>)[key]);
+  if (!override) return variant;
 
-  const merchants: Merchant[] = override.map((m) => ({
+  const merchants: Merchant[] = override.merchants.map((m) => ({
     id: m.id,
     name: m.name,
     price: m.price,
@@ -60,16 +89,23 @@ export function applyOverride(variant: Variant, overrides: LiveOverrides): Varia
   const availablePrices = merchants.filter((m) => m.available).map((m) => m.price);
   const currentPrice =
     availablePrices.length > 0 ? Math.min(...availablePrices) : Math.min(...merchants.map((m) => m.price));
-  const { level, reason } = computeLevel(currentPrice, variant.averagePrice);
+
+  // Prix de référence : celui saisi par l'admin s'il existe, sinon la moyenne
+  // des données de démonstration (comportement inchangé si rien n'est saisi).
+  const averagePrice = override.averagePrice ?? variant.averagePrice;
+  const { level, reason } = computeLevel(currentPrice, averagePrice);
 
   return {
     ...variant,
     merchants,
     currentPrice,
+    averagePrice,
     priceLevel: level,
     priceLevelReason: reason,
   };
-}export async function getLiveVariant(familySlug: string, edition: string, version: string): Promise<Variant | undefined> {
+}
+
+export async function getLiveVariant(familySlug: string, edition: string, version: string): Promise<Variant | undefined> {
   const base = staticVariants.find((v) => v.familySlug === familySlug && v.edition === edition && v.version === version);
   if (!base) return undefined;
   const overrides = await getLiveOverrides();
@@ -86,6 +122,14 @@ export async function getAllLiveVariants(): Promise<Variant[]> {
   return staticVariants.map((v) => applyOverride(v, overrides));
 }
 
+// Équivalent live de getBestOverallDeal() (mock-ps5.ts) : la meilleure offre
+// "neuf" toutes familles confondues, mais calculée à partir des données live
+// (donc à jour si l'admin a modifié des prix), pas des données de démo brutes.
+export async function getLiveBestOverallDeal(): Promise<Variant> {
+  const all = await getAllLiveVariants();
+  return [...all].filter((v) => v.edition === "neuf").sort((a, b) => a.currentPrice - b.currentPrice)[0];
+}
+
 // Utilitaire pour l'écran d'administration : construit l'état actuel (live si
 // présent, sinon référence) sous la forme éditable LiveOverrides complète.
 export async function getEditableSnapshot(): Promise<LiveOverrides> {
@@ -93,17 +137,20 @@ export async function getEditableSnapshot(): Promise<LiveOverrides> {
   const snapshot: LiveOverrides = {};
   for (const v of staticVariants) {
     const key = variantKey(v.familySlug, v.edition, v.version);
-    const existing = overrides[key];
-    snapshot[key] = existing && existing.length > 0
-      ? existing
-      : v.merchants.map((m) => ({
-          id: m.id,
-          name: m.name,
-          price: m.price,
-          available: m.available,
-          url: m.url,
-          trustRating: m.trustRating,
-        }));
+    const existing = normalizeOverride((overrides as Record<string, unknown>)[key]);
+    snapshot[key] = existing
+      ? { merchants: existing.merchants, averagePrice: existing.averagePrice ?? v.averagePrice }
+      : {
+          averagePrice: v.averagePrice,
+          merchants: v.merchants.map((m) => ({
+            id: m.id,
+            name: m.name,
+            price: m.price,
+            available: m.available,
+            url: m.url,
+            trustRating: m.trustRating,
+          })),
+        };
   }
   return snapshot;
 }

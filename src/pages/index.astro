@@ -3,23 +3,26 @@ export const prerender = false;
 import Layout from "../layouts/Layout.astro";
 import FamilyCard from "../components/FamilyCard.astro";
 import CountdownBanner from "../components/CountdownBanner.astro";
-import { families } from "../data/mock-ps5";
+import { families, versionsForFamily } from "../data/mock-ps5";
 import { getLiveVariant } from "../lib/live-data";
 
 const familyVariants = await Promise.all(
-  families.map(async (family) => ({
-    family,
-    variants: {
-      neuf: {
-        digital: (await getLiveVariant(family.slug, "neuf", "digital"))!,
-        lecteur: (await getLiveVariant(family.slug, "neuf", "lecteur"))!,
+  families.map(async (family) => {
+    const hasLecteur = versionsForFamily(family.slug).includes("lecteur");
+    return {
+      family,
+      variants: {
+        neuf: {
+          digital: (await getLiveVariant(family.slug, "neuf", "digital"))!,
+          lecteur: hasLecteur ? await getLiveVariant(family.slug, "neuf", "lecteur") : undefined,
+        },
+        reconditionne: {
+          digital: (await getLiveVariant(family.slug, "reconditionne", "digital"))!,
+          lecteur: hasLecteur ? await getLiveVariant(family.slug, "reconditionne", "lecteur") : undefined,
+        },
       },
-      reconditionne: {
-        digital: (await getLiveVariant(family.slug, "reconditionne", "digital"))!,
-        lecteur: (await getLiveVariant(family.slug, "reconditionne", "lecteur"))!,
-      },
-    },
-  }))
+    };
+  })
 );
 ---
 
@@ -761,6 +764,10 @@ const familyVariants = await Promise.all(
     .edition-toggle {
       margin-bottom: 0;
     }
+
+    .banner-wrap {
+      margin-top: 24px;
+    }
   }
 
   @media (max-width: 420px) {
@@ -828,6 +835,6 @@ const familyVariants = await Promise.all(
      ======================================== */
 
   .banner-wrap {
-    margin-top: 36px;
+    margin-top: 32px;
   }
 </style>
