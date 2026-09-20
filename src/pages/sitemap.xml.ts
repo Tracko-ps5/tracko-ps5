@@ -1,20 +1,18 @@
 export const prerender = true;
 import type { APIRoute } from "astro";
-import { families, versionsForFamily } from "../data/mock-ps5";
+import { families } from "../data/mock-ps5";
 
 const SITE_URL = "https://tracko-ps5.netlify.app";
-const editions = ["neuf", "reconditionne"] as const;
 
 export const GET: APIRoute = () => {
   const staticUrls = ["/", "/alertes", "/a-propos", "/guides/digital-vs-lecteur", "/guides/neuf-vs-reconditionne"];
 
+  // Une URL par modèle. Les anciennes pages /ps5/[famille]/[état]/[version]
+  // sont volontairement absentes : elles redirigent en 301 vers ces pages
+  // (un sitemap ne doit lister que les URLs finales, canoniques).
   const familyUrls = families.map((f) => `/ps5/${f.slug}`);
 
-  const comparisonUrls = families.flatMap((f) =>
-    editions.flatMap((edition) => versionsForFamily(f.slug).map((version) => `/ps5/${f.slug}/${edition}/${version}`))
-  );
-
-  const urls = [...staticUrls, ...familyUrls, ...comparisonUrls];
+  const urls = [...staticUrls, ...familyUrls];
 
   const body = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">

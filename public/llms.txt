@@ -6,10 +6,10 @@ Tracko n'est pas affilié à Sony/PlayStation ni à aucun des marchands cités. 
 
 ## Pages principales
 
-- [Accueil](/) : présentation des 3 familles de PS5 (Digital et Avec lecteur, Neuf et Reconditionné)
-- [PS5](/ps5/ps5) : choix Digital / Avec lecteur pour la PS5
-- [PS5 Slim](/ps5/ps5-slim) : choix Digital / Avec lecteur pour la PS5 Slim
-- [PS5 Pro](/ps5/ps5-pro) : référence unique (pas de version "Avec lecteur" séparée — Sony ne vend la PS5 Pro que sans lecteur intégré, un lecteur externe reste un accessoire)
+- [Accueil](/) : présentation des 3 modèles de PS5 avec, pour chacun, les prix Neuf ou Reconditionné
+- [PS5](/ps5/ps5) : offres des marchands pour la PS5, neuf et reconditionné, Digital et Avec lecteur, sur une seule page
+- [PS5 Slim](/ps5/ps5-slim) : offres des marchands pour la PS5 Slim, neuf et reconditionné, Digital et Avec lecteur, sur une seule page
+- [PS5 Pro](/ps5/ps5-pro) : offres des marchands pour la PS5 Pro, neuf et reconditionné : référence unique, sans version "Avec lecteur" séparée (Sony ne vend la PS5 Pro que sans lecteur intégré, un lecteur externe reste un accessoire)
 - [Mes alertes](/alertes) : alertes de prix personnalisées
 - [À propos](/a-propos) : mentions légales, politique d'affiliation, méthodologie des prix
 

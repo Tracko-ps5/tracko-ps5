@@ -2,29 +2,93 @@
 export const prerender = false;
 import Layout from "../../layouts/Layout.astro";
 import ConsoleIllustration from "../../components/ConsoleIllustration.astro";
-import { getFamily, priceLevelLabel, versionsForFamily } from "../../data/mock-ps5";
+import MerchantRow from "../../components/MerchantRow.astro";
+import AlertForm from "../../components/AlertForm.astro";
+import { getFamily, priceLevelLabel, versionLabel, versionsForFamily } from "../../data/mock-ps5";
+import type { Edition } from "../../data/mock-ps5";
+import { consoleImageAlts } from "../../data/console-images";
 import { getLiveVariant } from "../../lib/live-data";
+
+// ─────────────────────────────────────────────────────────────────────────
+// Données structurées Product / AggregateOffer
+//
+// Tant que les prix affichés sont des DONNÉES DE DÉMONSTRATION, on ne les
+// publie PAS en JSON-LD : Google les lirait comme de vraies offres, ce qui est
+// trompeur (et un Product sans offre ni avis n'est de toute façon pas exploitable
+// par Google). Seul le fil d'Ariane (BreadcrumbList), sans prix, est publié.
+// → Passer à `false` UNIQUEMENT quand les prix viennent d'une vraie source :
+//   un Product avec AggregateOffer est alors publié pour chaque configuration.
+// ─────────────────────────────────────────────────────────────────────────
+const PRICES_ARE_DEMO = true;
 
 const family = getFamily(Astro.params.family ?? "");
 if (!family) {
   return new Response(null, { status: 404 });
 }
 
-// La PS5 Pro n'a qu'une seule référence (pas de version "avec lecteur"
-// distincte) — on ne va chercher/afficher la version "lecteur" que pour les
-// familles qui l'ont réellement.
-const hasLecteur = versionsForFamily(family.slug).includes("lecteur");
+// Les données internes restent organisées par configuration (état × version) :
+// seule la navigation change. La PS5 Pro n'a qu'une référence (pas de version
+// "avec lecteur" distincte) : on ne génère donc que les configurations réelles.
+const editions: Edition[] = ["neuf", "reconditionne"];
+const editionLabels: Record<Edition, string> = { neuf: "Neuf", reconditionne: "Reconditionné" };
+const versions = versionsForFamily(family.slug);
+const hasMultipleVersions = versions.length > 1;
 
-const editionVariants = {
-  neuf: {
-    digital: (await getLiveVariant(family.slug, "neuf", "digital"))!,
-    lecteur: hasLecteur ? await getLiveVariant(family.slug, "neuf", "lecteur") : undefined,
-  },
-  reconditionne: {
-    digital: (await getLiveVariant(family.slug, "reconditionne", "digital"))!,
-    lecteur: hasLecteur ? await getLiveVariant(family.slug, "reconditionne", "lecteur") : undefined,
-  },
-};
+const loaded = await Promise.all(
+  editions.flatMap((edition) =>
+    versions.map(async (version) => ({
+      edition,
+      version,
+      variant: await getLiveVariant(family.slug, edition, version),
+    }))
+  )
+);
+
+const configs = loaded.flatMap(({ edition, version, variant }) => {
+  if (!variant) return [];
+
+  const editionLabel = editionLabels[edition];
+  const sortedMerchants = [...variant.merchants].sort((a, b) => a.price - b.price);
+  // Meilleure offre = marchand réellement disponible (repli sur tous si aucun
+  // n'est en stock), comme dans le calcul de currentPrice (live-data.ts).
+  const best = sortedMerchants.find((m) => m.available) ?? sortedMerchants[0];
+  const mostRecentUpdate = [...variant.merchants].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]?.updatedAt;
+
+  return [
+    {
+      id: `${edition}-${version}`, // ancre : /ps5/ps5#neuf-digital
+      edition,
+      version,
+      variant,
+      // Libellés identiques à ceux des anciennes pages (utilisés aussi dans les e-mails d'alerte).
+      label: hasMultipleVersions ? `${editionLabel} — ${versionLabel(version)}` : editionLabel,
+      heading: hasMultipleVersions
+        ? `${family.name} ${editionLabel} — ${versionLabel(version)}`
+        : `${family.name} ${editionLabel}`,
+      modelName: `${family.name} ${editionLabel}${hasMultipleVersions ? ` ${versionLabel(version)}` : ""}`,
+      sortedMerchants,
+      best,
+      updatedLabel: mostRecentUpdate
+        ? new Date(mostRecentUpdate).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })
+        : null,
+    },
+  ];
+});
+
+if (configs.length === 0) {
+  return new Response(null, { status: 404 });
+}
+
+const cheapest = configs.reduce((min, c) => (c.variant.currentPrice < min.variant.currentPrice ? c : min));
+
+const alertConfigs = configs.map((c) => ({
+  edition: c.edition,
+  version: c.version,
+  label: c.label,
+  modelName: c.modelName,
+  price: c.variant.currentPrice,
+}));
+const firstConfig = configs[0];
 
 const breadcrumbJsonLd = {
   "@context": "https://schema.org",
@@ -43,24 +107,56 @@ const breadcrumbJsonLd = {
     },
   ],
 };
+
+const productJsonLd = configs.map((c) => {
+  const prices = c.variant.merchants.map((m) => m.price);
+  return {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: c.modelName,
+    description: `${family.tagline} Édition ${editionLabels[c.edition].toLowerCase()}${hasMultipleVersions ? `, version ${versionLabel(c.version).toLowerCase()}` : ""}.`,
+    offers: {
+      "@type": "AggregateOffer",
+      priceCurrency: "EUR",
+      lowPrice: Math.min(...prices),
+      highPrice: Math.max(...prices),
+      offerCount: c.variant.merchants.length,
+      offers: c.variant.merchants.map((m) => ({
+        "@type": "Offer",
+        price: m.price,
+        priceCurrency: "EUR",
+        availability: m.available ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+        url: m.url,
+        seller: { "@type": "Organization", name: m.name },
+      })),
+    },
+  };
+});
+
+const jsonLd = PRICES_ARE_DEMO ? [breadcrumbJsonLd] : [breadcrumbJsonLd, ...productJsonLd];
 ---
 
 <Layout
-  title={`${family.name} — choisis ta version | Tracko`}
-  description={`Compare les prix de la ${family.name} en neuf ou reconditionné${hasLecteur ? ", digital ou avec lecteur" : ""}.`}
-  jsonLd={breadcrumbJsonLd}
+  title={`${family.name} : prix et offres, neuf et reconditionné | Tracko`}
+  description={`Compare les offres de la ${family.name} chez les marchands français : neuf et reconditionné${hasMultipleVersions ? ", Digital ou avec lecteur" : ""}. Crée une alerte de prix.`}
+  jsonLd={jsonLd}
 >
-  <main class="container family-page">
+  <div class="container family-page">
     <a href="/" class="back-link">
       <span class="back-link__arrow">←</span>
       <span>Tous les modèles</span>
     </a>
 
     <section class="family-hero fade-in">
-      <div class="family-hero__visual" aria-hidden="true">
-        <div class="family-hero__halo"></div>
+      <div class="family-hero__visual">
+        <div class="family-hero__halo" aria-hidden="true"></div>
         <div class="family-hero__console">
-          <ConsoleIllustration slug={family.slug} size={88} />
+          <ConsoleIllustration
+            slug={family.slug}
+            size={88}
+            alt={consoleImageAlts[family.slug]}
+            loading="eager"
+          />
         </div>
       </div>
 
@@ -68,130 +164,74 @@ const breadcrumbJsonLd = {
         <span class="family-hero__eyebrow">PlayStation 5</span>
         <h1>{family.name}</h1>
         <p>{family.tagline}</p>
+        <p class="family-hero__from">
+          À partir de <strong>{cheapest.variant.currentPrice} €</strong> · {cheapest.label}
+        </p>
       </div>
     </section>
 
-    <section class="selection-section fade-in">
-      <div class="selection-heading">
-        <div>
-          <span class="selection-heading__eyebrow">Configuration</span>
-          <h2>Choisis ta version</h2>
-        </div>
-      </div>
+    <section class="config-overview fade-in">
+      <span class="config-overview__eyebrow">Aperçu</span>
+      <h2>Prix par configuration</h2>
 
-      <div
-        class="edition-toggle"
-        role="tablist"
-        aria-label="Choisir l'état de l'appareil"
-      >
-        <button
-          type="button"
-          class="edition-toggle__option is-active"
-          data-edition="neuf"
-          role="tab"
-          aria-selected="true"
-        >
-          Neuf
-        </button>
-
-        <button
-          type="button"
-          class="edition-toggle__option"
-          data-edition="reconditionne"
-          role="tab"
-          aria-selected="false"
-        >
-          Reconditionné
-        </button>
-      </div>
-
-      <div class="version-cards">
-        {(["neuf", "reconditionne"] as const).map((edition) => (
-          <div
-            class:list={["version-panel", !hasLecteur && "version-panel--single"]}
-            data-panel={edition}
-            style={edition === "reconditionne" ? "display:none" : ""}
-          >
-            {(["digital", "lecteur"] as const).map((version) => {
-              const v = editionVariants[edition][version];
-              if (!v) return null;
-
-              return (
-                <a
-                  class="version-card"
-                  href={`/ps5/${family.slug}/${edition}/${version}`}
-                >
-                  <div class="version-card__visual">
-                    {hasLecteur && (
-                      <span class="version-card__number">
-                        {version === "digital" ? "01" : "02"}
-                      </span>
-                    )}
-
-                    <div class="version-card__title">
-                      <span class="version-card__type">
-                        PS5
-                      </span>
-
-                      {hasLecteur && (
-                        <strong>
-                          {version === "digital" ? "Digital" : "Avec lecteur"}
-                        </strong>
-                      )}
-                    </div>
-
-                    <span class={`badge badge--${v.priceLevel}`}>
-                      {priceLevelLabel(v.priceLevel)}
-                    </span>
-                  </div>
-
-                  <div class="version-card__bottom">
-                    <div class="version-card__price-wrap">
-                      <span class="version-card__price-label">
-                        À partir de
-                      </span>
-
-                      <span class="version-card__price">
-                        {v.currentPrice} €
-                      </span>
-                    </div>
-
-                    <span class="version-card__cta">
-                      Voir les offres
-                      <span aria-hidden="true">→</span>
-                    </span>
-                  </div>
-                </a>
-              );
-            })}
-          </div>
+      <nav class="config-nav" aria-label={`Aller aux offres de la ${family.name}`}>
+        {configs.map((c) => (
+          <a class="config-nav__item" href={`#${c.id}`}>
+            <span class="config-nav__label">{c.label}</span>
+            <span class="config-nav__price">{c.variant.currentPrice} €</span>
+            <span class={`badge badge--${c.variant.priceLevel}`}>{priceLevelLabel(c.variant.priceLevel)}</span>
+          </a>
         ))}
-      </div>
+      </nav>
     </section>
-  </main>
+
+    {configs.map((c) => (
+      <section class="config-section fade-in" id={c.id}>
+        <div class="config-section__header">
+          <h2>{c.heading}</h2>
+          <div class="config-section__meta">
+            <span>À partir de <strong>{c.variant.currentPrice} €</strong></span>
+            <span class={`badge badge--${c.variant.priceLevel}`}>{priceLevelLabel(c.variant.priceLevel)}</span>
+          </div>
+        </div>
+
+        {c.updatedLabel && <p class="config-section__updated">Mis à jour le {c.updatedLabel}</p>}
+
+        <div class="card merchant-list">
+          {c.sortedMerchants.map((merchant) => (
+            <MerchantRow merchant={merchant} isBest={merchant.id === c.best.id} />
+          ))}
+        </div>
+
+        <a class="config-section__alert" href="#alerte" data-alert-config={c.id}>
+          Être alerté pour cette configuration
+        </a>
+      </section>
+    ))}
+
+    <section class="config-section" id="alerte">
+      <AlertForm
+        modelName={firstConfig.modelName}
+        currentPrice={firstConfig.variant.currentPrice}
+        familySlug={family.slug}
+        edition={firstConfig.edition}
+        version={firstConfig.version}
+        configs={alertConfigs}
+      />
+    </section>
+  </div>
 </Layout>
 
 <script>
-  const toggleButtons =
-    document.querySelectorAll<HTMLButtonElement>(".edition-toggle__option");
+  // « Être alerté pour cette configuration » : présélectionne la configuration
+  // dans le formulaire d'alerte unique en bas de page.
+  document.querySelectorAll<HTMLAnchorElement>("[data-alert-config]").forEach((link) => {
+    link.addEventListener("click", () => {
+      const select = document.getElementById("alert-config") as HTMLSelectElement | null;
+      if (!select || !link.dataset.alertConfig) return;
 
-  const panels =
-    document.querySelectorAll<HTMLElement>(".version-panel");
-
-  toggleButtons.forEach((btn) => {
-    btn.addEventListener("click", () => {
-      toggleButtons.forEach((button) => {
-        button.classList.remove("is-active");
-        button.setAttribute("aria-selected", "false");
-      });
-
-      btn.classList.add("is-active");
-      btn.setAttribute("aria-selected", "true");
-
-      panels.forEach((panel) => {
-        panel.style.display =
-          panel.dataset.panel === btn.dataset.edition ? "" : "none";
-      });
+      select.value = link.dataset.alertConfig;
+      select.dispatchEvent(new Event("change"));
     });
   });
 </script>
@@ -327,19 +367,26 @@ const breadcrumbJsonLd = {
     line-height: 1.5;
   }
 
+  .family-hero__content .family-hero__from {
+    max-width: none;
+    margin-top: 14px;
+    color: var(--color-text-secondary);
+    font-size: 13px;
+  }
+
+  .family-hero__from strong {
+    color: var(--color-text-primary);
+    font-family: var(--font-display);
+    font-size: 21px;
+    font-weight: 700;
+    letter-spacing: -0.035em;
+  }
+
   /* ─────────────────────────────────────────
-     SÉLECTION
+     RÉSUMÉ : PRIX PAR CONFIGURATION
   ───────────────────────────────────────── */
 
-  .selection-section {
-    margin-top: 10px;
-  }
-
-  .selection-heading {
-    margin-bottom: 14px;
-  }
-
-  .selection-heading__eyebrow {
+  .config-overview__eyebrow {
     display: block;
     margin-bottom: 4px;
     color: var(--color-text-muted);
@@ -349,237 +396,130 @@ const breadcrumbJsonLd = {
     text-transform: uppercase;
   }
 
-  .selection-heading h2 {
-    margin: 0;
+  .config-overview h2 {
+    margin: 0 0 14px;
     color: var(--color-text-primary);
     font-size: 22px;
     line-height: 1.2;
     letter-spacing: -0.025em;
   }
 
-  /* ─────────────────────────────────────────
-     NEUF / RECONDITIONNÉ
-  ───────────────────────────────────────── */
-
-  .edition-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    padding: 4px;
-    margin-bottom: 18px;
-    border: 1px solid var(--color-border);
-    border-radius: 999px;
-    background: var(--color-surface-muted);
-  }
-
-  .edition-toggle__option {
-    min-height: 36px;
-    padding: 7px 19px;
-    border: 0;
-    border-radius: 999px;
-    background: transparent;
-    color: var(--color-text-secondary);
-    font-family: var(--font-sans);
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition:
-      background var(--dur-fast) ease,
-      color var(--dur-fast) ease,
-      box-shadow var(--dur-fast) ease,
-      transform var(--dur-fast) ease;
-  }
-
-  .edition-toggle__option:hover {
-    color: var(--color-text-primary);
-  }
-
-  .edition-toggle__option.is-active {
-    background: var(--color-surface);
-    color: var(--color-text-primary);
-    box-shadow:
-      0 2px 7px rgba(23, 22, 17, 0.08),
-      0 1px 2px rgba(23, 22, 17, 0.04);
-  }
-
-  /* ─────────────────────────────────────────
-     CARTES DIGITAL / LECTEUR
-  ───────────────────────────────────────── */
-
-  .version-cards {
-    display: grid;
-  }
-
-  .version-panel {
+  .config-nav {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
+    gap: 10px;
   }
 
-  /* Famille à référence unique (ex. PS5 Pro) : une seule carte, pas de
-     colonne vide à côté. */
-  .version-panel--single {
-    grid-template-columns: minmax(0, 1fr);
-    max-width: 360px;
-  }
-
-  .version-card {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    min-height: 205px;
-    padding: 20px;
-    overflow: hidden;
+  .config-nav__item {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 8px 12px;
+    padding: 14px 16px;
     border: 1px solid var(--color-border);
-    border-radius: 18px;
+    border-radius: 14px;
     background: var(--color-surface);
     color: var(--color-text-primary);
     text-decoration: none;
     box-shadow: 0 4px 14px rgba(25, 31, 50, 0.035);
     transition:
-      transform 180ms ease,
-      border-color 180ms ease,
-      box-shadow 180ms ease;
+      border-color var(--dur-fast) ease,
+      box-shadow var(--dur-fast) ease;
   }
 
-  .version-card::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 3px;
-    background: linear-gradient(
-      90deg,
-      var(--color-accent-blue),
-      rgba(72, 105, 214, 0.15)
-    );
-    opacity: 0;
-    transition: opacity 180ms ease;
-  }
-
-  .version-card:hover {
-    transform: translateY(-3px);
+  .config-nav__item:hover {
     border-color: var(--color-accent-blue-border);
-    box-shadow:
-      0 14px 28px rgba(25, 31, 50, 0.08),
-      0 3px 8px rgba(72, 105, 214, 0.045);
+    box-shadow: 0 10px 24px rgba(25, 31, 50, 0.07);
   }
 
-  .version-card:hover::before {
-    opacity: 1;
-  }
-
-  .version-card__visual {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 8px;
-    min-height: 76px;
-  }
-
-  .version-card__number {
-    color: var(--color-text-muted);
-    font-family: var(--font-display);
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-  }
-
-  .version-card__title {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    gap: 3px;
-    padding: 0 6px;
-  }
-
-  .version-card__type {
-    color: var(--color-text-muted);
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-  }
-
-  .version-card__title strong {
-    color: var(--color-text-primary);
-    font-size: 17px;
+  .config-nav__label {
+    font-size: 13px;
     font-weight: 650;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.01em;
   }
 
-  /* ─────────────────────────────────────────
-     BADGE PRIX
-     Les couleurs viennent du système global (.badge / .badge--*
-     dans src/styles/global.css) — ici on ajuste juste la taille pour
-     qu'il reste compact dans cette carte, sans dupliquer la logique
-     de couleur par statut.
-  ───────────────────────────────────────── */
-
-  .version-card__visual .badge {
-    flex-shrink: 0;
-    padding: 5px 8px;
-    font-size: 9px;
-    font-weight: 700;
-    line-height: 1;
-    white-space: nowrap;
-  }
-
-  /* ─────────────────────────────────────────
-     PRIX + CTA
-  ───────────────────────────────────────── */
-
-  .version-card__bottom {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 12px;
-    margin-top: auto;
-    padding-top: 16px;
-    border-top: 1px solid var(--color-border);
-  }
-
-  .version-card__price-wrap {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .version-card__price-label {
-    color: var(--color-text-muted);
-    font-size: 9px;
-    font-weight: 500;
-  }
-
-  .version-card__price {
-    color: var(--color-text-primary);
+  .config-nav__price {
+    grid-row: span 2;
     font-family: var(--font-display);
-    font-size: 28px;
+    font-size: 24px;
     font-weight: 700;
     line-height: 1;
     letter-spacing: -0.045em;
   }
 
-  .version-card__cta {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding-bottom: 2px;
-    color: var(--color-accent-blue);
-    font-size: 11px;
+  .config-nav__item .badge {
+    justify-self: start;
+    padding: 4px 8px;
+    font-size: 9px;
     font-weight: 700;
+    line-height: 1;
     white-space: nowrap;
   }
 
-  .version-card__cta span {
-    font-size: 15px;
-    line-height: 1;
-    transition: transform 180ms ease;
+  /* ─────────────────────────────────────────
+     OFFRES PAR CONFIGURATION
+  ───────────────────────────────────────── */
+
+  .config-section {
+    margin-top: 44px;
+    scroll-margin-top: 20px;
   }
 
-  .version-card:hover .version-card__cta span {
-    transform: translateX(3px);
+  .config-section__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px 16px;
+    margin-bottom: 4px;
+  }
+
+  .config-section__header h2 {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-size: 20px;
+    line-height: 1.25;
+    letter-spacing: -0.025em;
+  }
+
+  .config-section__meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--color-text-secondary);
+    font-size: 13px;
+  }
+
+  .config-section__meta strong {
+    color: var(--color-text-primary);
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+  }
+
+  .config-section__updated {
+    margin: 0 0 12px;
+    color: var(--color-text-muted);
+    font-size: 12px;
+  }
+
+  .merchant-list {
+    overflow: hidden;
+  }
+
+  .config-section__alert {
+    display: inline-block;
+    margin-top: 12px;
+    color: var(--color-accent-blue);
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .config-section__alert:hover {
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }
 
   /* ─────────────────────────────────────────
@@ -632,40 +572,20 @@ const breadcrumbJsonLd = {
       font-size: 13px;
     }
 
-    .selection-heading h2 {
+    .config-overview h2 {
       font-size: 20px;
     }
 
-    .edition-toggle {
-      width: 100%;
-      margin-bottom: 15px;
-    }
-
-    .edition-toggle__option {
-      flex: 1;
-    }
-
-    .version-panel {
+    .config-nav {
       grid-template-columns: 1fr;
-      gap: 10px;
     }
 
-    .version-card {
-      min-height: 170px;
-      padding: 18px;
-      border-radius: 16px;
+    .config-section {
+      margin-top: 36px;
     }
 
-    .version-card__visual {
-      min-height: 58px;
-    }
-
-    .version-card__title strong {
-      font-size: 16px;
-    }
-
-    .version-card__price {
-      font-size: 26px;
+    .config-section__header h2 {
+      font-size: 18px;
     }
   }
 
@@ -674,24 +594,11 @@ const breadcrumbJsonLd = {
       padding-left: 16px;
       padding-right: 16px;
     }
-
-    .version-card__bottom {
-      align-items: flex-start;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .version-card__cta {
-      padding-bottom: 0;
-    }
   }
 
   @media (prefers-reduced-motion: reduce) {
     .back-link,
-    .edition-toggle__option,
-    .version-card,
-    .version-card::before,
-    .version-card__cta span {
+    .config-nav__item {
       transition: none;
     }
   }

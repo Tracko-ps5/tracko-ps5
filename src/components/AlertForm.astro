@@ -1,18 +1,54 @@
 ---
+// Configuration proposable dans le menu de la page modèle (une seule alerte
+// possible par envoi ; l'API reçoit toujours famille + état + version).
+interface AlertConfig {
+  edition: string;
+  version: string;
+  label: string; // libellé affiché dans le menu, ex. "Neuf — Digital"
+  modelName: string; // libellé du produit utilisé dans les e-mails, ex. "PS5 Neuf Digital"
+  price: number; // prix actuel, pour suggérer un prix cible
+}
+
 interface Props {
   modelName: string;
   currentPrice: number;
   familySlug: string;
   edition: string;
   version: string;
+  // Optionnel : sans cette prop le formulaire se comporte exactement comme
+  // avant (une seule configuration, fixée par les props ci-dessus).
+  configs?: AlertConfig[];
 }
 
-const { modelName, currentPrice, familySlug, edition, version } = Astro.props;
+const { modelName, currentPrice, familySlug, edition, version, configs } = Astro.props;
+const showConfigSelect = Boolean(configs && configs.length > 1);
 const suggestedTarget = Math.round((currentPrice * 0.9) / 10) * 10;
 ---
 
 <div class="alert-form card" data-family={familySlug} data-edition={edition} data-version={version} data-product-label={modelName}>
   <p class="alert-form__title">Créer une alerte</p>
+
+  {showConfigSelect && configs && (
+    <div class="alert-form__row alert-form__row--config">
+      <label for="alert-config" class="alert-form__label">Configuration concernée</label>
+      <div class="alert-form__input-wrap alert-form__input-wrap--full">
+        <select id="alert-config" name="alert-config" class="alert-form__select">
+          {configs.map((c) => (
+            <option
+              value={`${c.edition}-${c.version}`}
+              data-edition={c.edition}
+              data-version={c.version}
+              data-model-name={c.modelName}
+              data-price={c.price}
+              selected={c.edition === edition && c.version === version}
+            >
+              {c.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
+  )}
 
   <div class="alert-form__type-toggle" role="tablist" aria-label="Type d'alerte">
     <button type="button" class="alert-form__type-option is-active" data-type="price" role="tab" aria-selected="true">
@@ -24,10 +60,10 @@ const suggestedTarget = Math.round((currentPrice * 0.9) / 10) * 10;
   </div>
 
   <p class="alert-form__subtitle" data-subtitle-for="price">
-    Préviens-moi par email lorsque la {modelName} passe sous un certain prix.
+    Préviens-moi par email lorsque la <span data-model-name-slot>{modelName}</span> passe sous un certain prix.
   </p>
   <p class="alert-form__subtitle" data-subtitle-for="stock" hidden>
-    Préviens-moi par email dès que la {modelName} revient en stock chez un marchand.
+    Préviens-moi par email dès que la <span data-model-name-slot>{modelName}</span> revient en stock chez un marchand.
   </p>
 
   <div class="alert-form__row">
@@ -94,6 +130,34 @@ const suggestedTarget = Math.round((currentPrice * 0.9) / 10) * 10;
       });
     });
 
+    // Menu de configuration (page modèle) : met à jour la variante visée par
+    // l'alerte. Les valeurs sont relues au clic sur « Créer l'alerte », donc
+    // l'appel à /api/alerts/create reste strictement identique.
+    const configSelect = form.querySelector<HTMLSelectElement>(".alert-form__select");
+    const modelSlots = form.querySelectorAll<HTMLElement>("[data-model-name-slot]");
+    let priceEdited = false;
+
+    priceInput?.addEventListener("input", () => {
+      priceEdited = true;
+    });
+
+    configSelect?.addEventListener("change", () => {
+      const option = configSelect.selectedOptions[0];
+      if (!option) return;
+
+      form.dataset.edition = option.dataset.edition ?? "";
+      form.dataset.version = option.dataset.version ?? "";
+      form.dataset.productLabel = option.dataset.modelName ?? "";
+      modelSlots.forEach((slot) => {
+        slot.textContent = option.dataset.modelName ?? "";
+      });
+
+      const price = Number(option.dataset.price);
+      if (priceInput && !priceEdited && price > 0) {
+        priceInput.value = String(Math.round((price * 0.9) / 10) * 10);
+      }
+    });
+
     button?.addEventListener("click", async () => {
       if (!button || !note || !emailInput) return;
 
@@ -146,6 +210,7 @@ const suggestedTarget = Math.round((currentPrice * 0.9) / 10) * 10;
         emailInput.disabled = true;
         if (priceInput) priceInput.disabled = true;
         typeButtons.forEach((b) => (b.disabled = true));
+        if (configSelect) configSelect.disabled = true;
       } catch (err) {
         button.disabled = false;
         button.textContent = "Créer l'alerte";
@@ -242,6 +307,17 @@ const suggestedTarget = Math.round((currentPrice * 0.9) / 10) * 10;
 
   .alert-form__input-wrap--full input {
     width: 100%;
+  }
+
+  .alert-form__select {
+    width: 100%;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    cursor: pointer;
   }
 
   .alert-form__submit {

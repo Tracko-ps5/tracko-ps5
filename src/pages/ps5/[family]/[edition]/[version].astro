@@ -1,222 +1,31 @@
 ---
+// ANCIENNE URL : /ps5/[famille]/[état]/[version]
+//
+// Ces pages ont été fusionnées dans la page du modèle (/ps5/[famille]), qui
+// affiche directement toutes les offres. On garde volontairement cette route
+// pour que les anciennes URLs (déjà connues de Google/Bing, présentes dans les
+// e-mails d'alerte déjà envoyés) répondent par une VRAIE redirection HTTP 301
+// permanente vers la bonne section de la page modèle, par exemple :
+//   /ps5/ps5/neuf/digital  →  /ps5/ps5#neuf-digital
+//
+// Ne pas supprimer cette route : elle doit rester en place durablement.
+// Les combinaisons qui n'ont jamais existé (ex. ps5-pro/neuf/lecteur)
+// continuent de répondre 404, comme avant.
 export const prerender = false;
-import Layout from "../../../../layouts/Layout.astro";
-import MerchantRow from "../../../../components/MerchantRow.astro";
-import PriceChart from "../../../../components/PriceChart.astro";
-import AlertForm from "../../../../components/AlertForm.astro";
-import { getFamily, versionLabel, priceLevelLabel, versionsForFamily } from "../../../../data/mock-ps5";
-import type { Version } from "../../../../data/mock-ps5";
-import { getLiveVariant } from "../../../../lib/live-data";
+import { getFamily, versionsForFamily } from "../../../../data/mock-ps5";
 
 const { family: familySlug, edition, version } = Astro.params;
 const family = getFamily(familySlug ?? "");
-const variant = family ? await getLiveVariant(family.slug, edition ?? "", version ?? "") : undefined;
 
-if (!family || !variant) {
+const validEditions = ["neuf", "reconditionne"];
+const isKnownVariant =
+  family !== undefined &&
+  validEditions.includes(edition ?? "") &&
+  (versionsForFamily(family.slug) as string[]).includes(version ?? "");
+
+if (!family || !isKnownVariant) {
   return new Response(null, { status: 404 });
 }
 
-const editionLabel = variant.edition === "neuf" ? "Neuf" : "Reconditionné";
-// La PS5 Pro n'a qu'une seule référence (pas de choix digital/avec lecteur) :
-// on n'affiche donc "Digital"/"Avec lecteur" que pour les familles qui ont
-// réellement les deux versions, pour ne jamais faire apparaître "PS5 Pro
-// Digital" comme un produit à part.
-const hasMultipleVersions = versionsForFamily(family.slug).length > 1;
-const versionLbl = versionLabel(variant.version as Version);
-const versionSuffix = hasMultipleVersions ? ` ${versionLbl}` : "";
-
-const sortedMerchants = [...variant.merchants].sort((a, b) => a.price - b.price);
-// Le meilleur prix doit venir d'un marchand réellement disponible — sinon on
-// afficherait une offre en rupture comme "meilleur prix" avec un CTA actif.
-// Repli sur l'ensemble des marchands uniquement si aucun n'est en stock,
-// pour rester cohérent avec le calcul de currentPrice dans live-data.ts.
-const availableMerchants = sortedMerchants.filter((m) => m.available);
-const bestMerchant = availableMerchants[0] ?? sortedMerchants[0];
-const mostRecentUpdate = [...variant.merchants].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]?.updatedAt;
-const formattedUpdate = mostRecentUpdate
-  ? new Date(mostRecentUpdate).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })
-  : null;
-const merchantPrices = variant.merchants.map((m) => m.price);
-const productJsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Product",
-  name: `${family.name} ${editionLabel}${versionSuffix}`,
-  description: `${family.tagline} Édition ${editionLabel.toLowerCase()}${hasMultipleVersions ? `, version ${versionLbl.toLowerCase()}` : ""}.`,
-  offers: {
-    "@type": "AggregateOffer",
-    priceCurrency: "EUR",
-    lowPrice: Math.min(...merchantPrices),
-    highPrice: Math.max(...merchantPrices),
-    offerCount: variant.merchants.length,
-    offers: variant.merchants.map((m) => ({
-      "@type": "Offer",
-      price: m.price,
-      priceCurrency: "EUR",
-      availability: m.available ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
-      url: m.url,
-      seller: { "@type": "Organization", name: m.name },
-    })),
-  },
-};
-
-const breadcrumbJsonLd = {
-  "@context": "https://schema.org",
-  "@type": "BreadcrumbList",
-  itemListElement: [
-    { "@type": "ListItem", position: 1, name: "Accueil", item: "https://tracko-ps5.netlify.app/" },
-    { "@type": "ListItem", position: 2, name: family.name, item: `https://tracko-ps5.netlify.app/ps5/${family.slug}` },
-    { "@type": "ListItem", position: 3, name: `${editionLabel}${versionSuffix}` },
-  ],
-};
+return Astro.redirect(`/ps5/${family.slug}#${edition}-${version}`, 301);
 ---
-
-<Layout
-  title={`${family.name} ${editionLabel}${versionSuffix} — meilleur prix | Tracko`}
-  description={`Compare le prix de la ${family.name} ${editionLabel}${versionSuffix} chez tous les marchands. Prix actuel : ${variant.currentPrice} €.`}
-  jsonLd={[productJsonLd, breadcrumbJsonLd]}
->
-  <div class="container product-page">
-    <a href={`/ps5/${family.slug}`} class="back-link">← {family.name}</a>
-
-    <div class="product-header fade-in">
-      <h1>{family.name} <span class="product-header__meta">{editionLabel}{hasMultipleVersions ? ` · ${versionLbl}` : ""}</span></h1>
-    </div>
-
-    <div class="best-price-block fade-in">
-      <p class="best-price-block__label">Meilleur prix</p>
-      <p class="best-price-block__price">{bestMerchant.price} €</p>
-      <span class={`badge badge--${variant.priceLevel}`}>{priceLevelLabel(variant.priceLevel)}</span>
-      <p class="best-price-block__reason">{variant.priceLevelReason}</p>
-      <p class="best-price-block__merchant">
-        {bestMerchant.available ? `Chez ${bestMerchant.name}` : "Rupture de stock chez tous les marchands"}
-      </p>
-      {bestMerchant.available && (
-        <a class="button button--primary best-price-block__cta" href={bestMerchant.url}>Voir l'offre</a>
-      )}
-    </div>
-
-    <section class="section">
-      <div class="section__header">
-        <h2>Toutes les offres</h2>
-        {formattedUpdate && <span class="section__updated">Mis à jour le {formattedUpdate}</span>}
-      </div>
-      <div class="card merchant-list">
-        {sortedMerchants.map((merchant) => (
-          <MerchantRow merchant={merchant} isBest={merchant.id === bestMerchant.id} />
-        ))}
-      </div>
-    </section>
-
-    <section class="section">
-      <h2>Évolution du prix</h2>
-      <div class="card">
-        <PriceChart history={variant.priceHistory} isRealHistory={variant.isRealHistory} />
-      </div>
-    </section>
-
-    <section class="section">
-      <AlertForm
-        modelName={`${family.name} ${editionLabel}${versionSuffix}`}
-        currentPrice={variant.currentPrice}
-        familySlug={family.slug}
-        edition={variant.edition}
-        version={variant.version}
-      />
-    </section>
-  </div>
-</Layout>
-
-<style>
-  .product-page {
-    padding: 32px 24px 64px;
-    max-width: 640px;
-  }
-
-  .back-link {
-    display: inline-block;
-    font-size: 13px;
-    color: var(--color-text-secondary);
-    margin-bottom: 24px;
-  }
-
-  .product-header h1 {
-    font-size: 26px;
-    margin-bottom: 20px;
-  }
-
-  .product-header__meta {
-    font-family: var(--font-sans);
-    font-size: 14px;
-    font-weight: 400;
-    color: var(--color-text-secondary);
-    display: block;
-    margin-top: 4px;
-  }
-
-  .best-price-block {
-    background: var(--color-text-primary);
-    color: var(--color-bg);
-    border-radius: var(--radius-card);
-    padding: 28px 24px;
-    text-align: center;
-    margin-bottom: 32px;
-  }
-
-  .best-price-block__label {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: rgba(250, 249, 246, 0.6);
-    margin-bottom: 8px;
-  }
-
-  .best-price-block__price {
-    font-family: var(--font-display);
-    font-size: 42px;
-    margin-bottom: 10px;
-  }
-
-  .best-price-block__reason {
-    font-size: 13px;
-    color: rgba(250, 249, 246, 0.75);
-    margin-top: 10px;
-  }
-
-  .best-price-block__merchant {
-    font-size: 13px;
-    color: rgba(250, 249, 246, 0.6);
-    margin-top: 4px;
-    margin-bottom: 18px;
-  }
-
-  .best-price-block__cta {
-    background: var(--color-bg);
-    color: var(--color-text-primary);
-    border-color: var(--color-bg);
-  }
-
-  .section {
-    margin-top: 40px;
-  }
-
-  .section h2 {
-    font-size: 19px;
-    margin-bottom: 14px;
-  }
-
-  .section__header {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    margin-bottom: 12px;
-  }
-
-  .section__updated {
-    font-size: 12px;
-    color: var(--color-text-muted);
-  }
-
-  .merchant-list {
-    overflow: hidden;
-  }
-</style>

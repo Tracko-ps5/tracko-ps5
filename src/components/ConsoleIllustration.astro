@@ -6,9 +6,15 @@ import { consoleImagePaths } from "../data/console-images";
 interface Props {
   slug: Family["slug"];
   size?: number;
+  // Texte alternatif de l'image. Vide par défaut : l'illustration est alors
+  // purement décorative (cartes de l'accueil, où le nom du modèle est déjà
+  // écrit à côté). À renseigner quand l'image est le visuel principal d'une page.
+  alt?: string;
+  // "lazy" par défaut ; "eager" pour un visuel visible dès l'arrivée sur la page.
+  loading?: "lazy" | "eager";
 }
 
-const { slug, size = 58 } = Astro.props;
+const { slug, size = 58, alt = "", loading = "lazy" } = Astro.props;
 
 const heightRatio: Record<Family["slug"], number> = {
   ps5: 90 / 72,
@@ -29,8 +35,8 @@ const photoPath = consoleImagePaths[slug];
     <img
       class="console-photo-overlay"
       src={photoPath}
-      alt=""
-      loading="lazy"
+      alt={alt}
+      loading={loading}
       decoding="async"
       onerror="this.remove();"
     />
