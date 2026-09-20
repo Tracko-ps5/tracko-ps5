@@ -18,14 +18,19 @@ interface Props {
   // Optionnel : sans cette prop le formulaire se comporte exactement comme
   // avant (une seule configuration, fixée par les props ci-dessus).
   configs?: AlertConfig[];
+  // Page modèle : la configuration visée suit le sélecteur État / Version de la
+  // page (panneau visible `[data-config-panel]`) au lieu d'un menu déroulant.
+  followSelection?: boolean;
 }
 
-const { modelName, currentPrice, familySlug, edition, version, configs } = Astro.props;
-const showConfigSelect = Boolean(configs && configs.length > 1);
+const { modelName, currentPrice, familySlug, edition, version, configs, followSelection = false } = Astro.props;
+const showConfigSelect = Boolean(configs && configs.length > 1 && !followSelection);
+const showConfigValue = Boolean(configs && configs.length > 0 && followSelection);
+const initialConfigLabel = configs?.find((c) => c.edition === edition && c.version === version)?.label ?? "";
 const suggestedTarget = Math.round((currentPrice * 0.9) / 10) * 10;
 ---
 
-<div class="alert-form card" data-family={familySlug} data-edition={edition} data-version={version} data-product-label={modelName}>
+<div class="alert-form card" data-family={familySlug} data-edition={edition} data-version={version} data-product-label={modelName} data-follow-selection={followSelection ? "true" : undefined}>
   <p class="alert-form__title">Créer une alerte</p>
 
   {showConfigSelect && configs && (
@@ -47,6 +52,13 @@ const suggestedTarget = Math.round((currentPrice * 0.9) / 10) * 10;
           ))}
         </select>
       </div>
+    </div>
+  )}
+
+  {showConfigValue && (
+    <div class="alert-form__row alert-form__row--config">
+      <label for="alert-config" class="alert-form__label">Configuration concernée</label>
+      <output id="alert-config" class="alert-form__config-value" data-config-value>{initialConfigLabel}</output>
     </div>
   )}
 
@@ -136,10 +148,40 @@ const suggestedTarget = Math.round((currentPrice * 0.9) / 10) * 10;
     const configSelect = form.querySelector<HTMLSelectElement>(".alert-form__select");
     const modelSlots = form.querySelectorAll<HTMLElement>("[data-model-name-slot]");
     let priceEdited = false;
+    let locked = false; // alerte déjà enregistrée : la configuration ne bouge plus
 
     priceInput?.addEventListener("input", () => {
       priceEdited = true;
     });
+
+    // Page modèle (mode `followSelection`) : la configuration visée est celle du
+    // panneau actuellement affiché par le sélecteur État / Version. On lit le DOM
+    // à l'initialisation ET à chaque changement, donc l'ordre d'exécution des
+    // scripts n'a pas d'importance. Le payload de /api/alerts/create ne change pas.
+    const configValue = form.querySelector<HTMLElement>("[data-config-value]");
+
+    const syncFromSelection = () => {
+      if (locked || form.dataset.followSelection !== "true") return;
+
+      const panel = document.querySelector<HTMLElement>("[data-config-panel]:not([hidden])");
+      if (!panel) return;
+
+      form.dataset.edition = panel.dataset.edition ?? "";
+      form.dataset.version = panel.dataset.version ?? "";
+      form.dataset.productLabel = panel.dataset.modelName ?? "";
+      if (configValue) configValue.textContent = panel.dataset.label ?? "";
+      modelSlots.forEach((slot) => {
+        slot.textContent = panel.dataset.modelName ?? "";
+      });
+
+      const price = Number(panel.dataset.price);
+      if (priceInput && !priceEdited && price > 0) {
+        priceInput.value = String(Math.round((price * 0.9) / 10) * 10);
+      }
+    };
+
+    document.addEventListener("tracko:config-change", syncFromSelection);
+    syncFromSelection();
 
     configSelect?.addEventListener("change", () => {
       const option = configSelect.selectedOptions[0];
@@ -207,6 +249,7 @@ const suggestedTarget = Math.round((currentPrice * 0.9) / 10) * 10;
 
         button.textContent = "Alerte enregistrée ✓";
         note.textContent = "Vérifie ta boîte mail pour la confirmation.";
+        locked = true;
         emailInput.disabled = true;
         if (priceInput) priceInput.disabled = true;
         typeButtons.forEach((b) => (b.disabled = true));
@@ -307,6 +350,18 @@ const suggestedTarget = Math.round((currentPrice * 0.9) / 10) * 10;
 
   .alert-form__input-wrap--full input {
     width: 100%;
+  }
+
+  .alert-form__config-value {
+    display: block;
+    width: 100%;
+    padding: 8px 12px;
+    border: 0.5px solid var(--color-border-strong);
+    border-radius: var(--radius-control);
+    background: var(--color-surface-muted);
+    color: var(--color-text-primary);
+    font-size: 14px;
+    font-weight: 600;
   }
 
   .alert-form__select {

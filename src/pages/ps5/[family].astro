@@ -88,7 +88,14 @@ const alertConfigs = configs.map((c) => ({
   modelName: c.modelName,
   price: c.variant.currentPrice,
 }));
-const firstConfig = configs[0];
+
+// Sélecteurs État / Version : uniquement ce qui existe réellement dans les données
+// (la PS5 Pro n'a pas de version « Avec lecteur » → pas de groupe Version).
+// Configuration affichée par défaut = celle déjà utilisée comme meilleur prix
+// (`cheapest`, la même que « À partir de » dans le haut de page).
+const defaultConfig = cheapest;
+const availableEditions = editions.filter((e) => configs.some((c) => c.edition === e));
+const availableVersions = versions.filter((v) => configs.some((c) => c.version === v));
 
 const breadcrumbJsonLd = {
   "@context": "https://schema.org",
@@ -170,23 +177,58 @@ const jsonLd = PRICES_ARE_DEMO ? [breadcrumbJsonLd] : [breadcrumbJsonLd, ...prod
       </div>
     </section>
 
-    <section class="config-overview fade-in">
-      <span class="config-overview__eyebrow">Aperçu</span>
-      <h2>Prix par configuration</h2>
+    <section class="config-picker card fade-in" data-config-picker aria-label="Choisir la configuration">
+      {availableEditions.length > 1 && (
+        <div class="choice-group" role="group" aria-labelledby="choice-edition-label">
+          <span class="choice-group__label" id="choice-edition-label">État</span>
+          <div class="choice-group__options">
+            {availableEditions.map((e) => (
+              <button
+                type="button"
+                class="choice"
+                data-choice="edition"
+                data-value={e}
+                aria-pressed={e === defaultConfig.edition ? "true" : "false"}
+              >
+                {editionLabels[e]}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
-      <nav class="config-nav" aria-label={`Aller aux offres de la ${family.name}`}>
-        {configs.map((c) => (
-          <a class="config-nav__item" href={`#${c.id}`}>
-            <span class="config-nav__label">{c.label}</span>
-            <span class="config-nav__price">{c.variant.currentPrice} €</span>
-            <span class={`badge badge--${c.variant.priceLevel}`}>{priceLevelLabel(c.variant.priceLevel)}</span>
-          </a>
-        ))}
-      </nav>
+      {availableVersions.length > 1 && (
+        <div class="choice-group" role="group" aria-labelledby="choice-version-label">
+          <span class="choice-group__label" id="choice-version-label">Version</span>
+          <div class="choice-group__options">
+            {availableVersions.map((v) => (
+              <button
+                type="button"
+                class="choice"
+                data-choice="version"
+                data-value={v}
+                aria-pressed={v === defaultConfig.version ? "true" : "false"}
+              >
+                {versionLabel(v)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </section>
 
     {configs.map((c) => (
-      <section class="config-section fade-in" id={c.id}>
+      <section
+        class="config-section"
+        data-config-panel
+        data-config-id={c.id}
+        data-edition={c.edition}
+        data-version={c.version}
+        data-label={c.label}
+        data-model-name={c.modelName}
+        data-price={c.variant.currentPrice}
+        hidden={c.id !== defaultConfig.id}
+      >
         <div class="config-section__header">
           <h2>{c.heading}</h2>
           <div class="config-section__meta">
@@ -203,37 +245,75 @@ const jsonLd = PRICES_ARE_DEMO ? [breadcrumbJsonLd] : [breadcrumbJsonLd, ...prod
           ))}
         </div>
 
-        <a class="config-section__alert" href="#alerte" data-alert-config={c.id}>
+        <a class="config-section__alert" href="#alerte">
           Être alerté pour cette configuration
         </a>
       </section>
     ))}
 
-    <section class="config-section" id="alerte">
+    <section class="config-section config-section--alert" id="alerte">
       <AlertForm
-        modelName={firstConfig.modelName}
-        currentPrice={firstConfig.variant.currentPrice}
+        modelName={defaultConfig.modelName}
+        currentPrice={defaultConfig.variant.currentPrice}
         familySlug={family.slug}
-        edition={firstConfig.edition}
-        version={firstConfig.version}
+        edition={defaultConfig.edition}
+        version={defaultConfig.version}
         configs={alertConfigs}
+        followSelection
       />
     </section>
   </div>
 </Layout>
 
 <script>
-  // « Être alerté pour cette configuration » : présélectionne la configuration
-  // dans le formulaire d'alerte unique en bas de page.
-  document.querySelectorAll<HTMLAnchorElement>("[data-alert-config]").forEach((link) => {
-    link.addEventListener("click", () => {
-      const select = document.getElementById("alert-config") as HTMLSelectElement | null;
-      if (!select || !link.dataset.alertConfig) return;
+  // Sélecteurs État / Version : affichent le panneau de la configuration choisie
+  // (un seul visible à la fois). Le formulaire d'alerte (AlertForm) relit le
+  // panneau visible quand il reçoit `tracko:config-change`.
+  const picker = document.querySelector<HTMLElement>("[data-config-picker]");
+  const panels = Array.from(document.querySelectorAll<HTMLElement>("[data-config-panel]"));
 
-      select.value = link.dataset.alertConfig;
-      select.dispatchEvent(new Event("change"));
+  if (picker && panels.length > 0) {
+    type ChoiceKey = "edition" | "version";
+    const buttons = Array.from(picker.querySelectorAll<HTMLButtonElement>("[data-choice]"));
+
+    const current = () => panels.find((p) => !p.hidden);
+
+    const show = (panel: HTMLElement) => {
+      panels.forEach((p) => {
+        p.hidden = p !== panel;
+      });
+      buttons.forEach((b) => {
+        const key = b.dataset.choice as ChoiceKey;
+        b.setAttribute("aria-pressed", String(b.dataset.value === panel.dataset[key]));
+      });
+      document.dispatchEvent(new CustomEvent("tracko:config-change"));
+    };
+
+    buttons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const active = current();
+        const key = button.dataset.choice as ChoiceKey;
+        if (!active) return;
+
+        const other: ChoiceKey = key === "edition" ? "version" : "edition";
+        // On garde l'autre choix si la combinaison existe, sinon on prend la
+        // première configuration réellement disponible pour cette valeur.
+        const target =
+          panels.find((p) => p.dataset[key] === button.dataset.value && p.dataset[other] === active.dataset[other]) ??
+          panels.find((p) => p.dataset[key] === button.dataset.value);
+
+        if (!target || target === active) return;
+
+        show(target);
+        history.replaceState(null, "", `#${target.dataset.configId}`);
+      });
     });
-  });
+
+    // Anciennes URLs (/ps5/ps5/neuf/digital → 301 → /ps5/ps5#neuf-digital) :
+    // le hash présélectionne la bonne configuration.
+    const fromHash = panels.find((p) => p.dataset.configId === location.hash.slice(1));
+    if (fromHash && fromHash !== current()) show(fromHash);
+  }
 </script>
 
 <style>
@@ -383,12 +463,22 @@ const jsonLd = PRICES_ARE_DEMO ? [breadcrumbJsonLd] : [breadcrumbJsonLd, ...prod
   }
 
   /* ─────────────────────────────────────────
-     RÉSUMÉ : PRIX PAR CONFIGURATION
+     SÉLECTEURS : ÉTAT / VERSION
   ───────────────────────────────────────── */
 
-  .config-overview__eyebrow {
-    display: block;
-    margin-bottom: 4px;
+  .config-picker {
+    display: grid;
+    gap: 20px;
+    padding: 22px;
+  }
+
+  .choice-group {
+    display: grid;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .choice-group__label {
     color: var(--color-text-muted);
     font-size: 10px;
     font-weight: 700;
@@ -396,64 +486,50 @@ const jsonLd = PRICES_ARE_DEMO ? [breadcrumbJsonLd] : [breadcrumbJsonLd, ...prod
     text-transform: uppercase;
   }
 
-  .config-overview h2 {
-    margin: 0 0 14px;
-    color: var(--color-text-primary);
-    font-size: 22px;
-    line-height: 1.2;
-    letter-spacing: -0.025em;
-  }
-
-  .config-nav {
+  .choice-group__options {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
   }
 
-  .config-nav__item {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    align-items: center;
-    gap: 8px 12px;
-    padding: 14px 16px;
-    border: 1px solid var(--color-border);
+  .choice {
+    min-width: 0;
+    min-height: 52px;
+    padding: 10px 14px;
+    border: 1px solid var(--color-border-strong);
     border-radius: 14px;
     background: var(--color-surface);
     color: var(--color-text-primary);
-    text-decoration: none;
-    box-shadow: 0 4px 14px rgba(25, 31, 50, 0.035);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    text-align: center;
+    cursor: pointer;
     transition:
+      background var(--dur-fast) ease,
       border-color var(--dur-fast) ease,
+      color var(--dur-fast) ease,
       box-shadow var(--dur-fast) ease;
   }
 
-  .config-nav__item:hover {
-    border-color: var(--color-accent-blue-border);
-    box-shadow: 0 10px 24px rgba(25, 31, 50, 0.07);
+  .choice:hover {
+    border-color: var(--color-text-muted);
+    background: var(--color-surface-muted);
   }
 
-  .config-nav__label {
-    font-size: 13px;
-    font-weight: 650;
-    letter-spacing: -0.01em;
+  .choice:focus-visible {
+    outline: 2px solid var(--color-accent-blue);
+    outline-offset: 2px;
   }
 
-  .config-nav__price {
-    grid-row: span 2;
-    font-family: var(--font-display);
-    font-size: 24px;
-    font-weight: 700;
-    line-height: 1;
-    letter-spacing: -0.045em;
-  }
-
-  .config-nav__item .badge {
-    justify-self: start;
-    padding: 4px 8px;
-    font-size: 9px;
-    font-weight: 700;
-    line-height: 1;
-    white-space: nowrap;
+  .choice[aria-pressed="true"],
+  .choice[aria-pressed="true"]:hover {
+    border-color: var(--color-accent);
+    background: var(--color-accent);
+    color: var(--color-accent-text);
+    box-shadow: 0 8px 18px rgba(27, 42, 74, 0.2);
   }
 
   /* ─────────────────────────────────────────
@@ -461,8 +537,27 @@ const jsonLd = PRICES_ARE_DEMO ? [breadcrumbJsonLd] : [breadcrumbJsonLd, ...prod
   ───────────────────────────────────────── */
 
   .config-section {
-    margin-top: 44px;
+    margin-top: 28px;
     scroll-margin-top: 20px;
+  }
+
+  .config-section[data-config-panel]:not([hidden]) {
+    animation: config-panel-in 220ms ease both;
+  }
+
+  .config-section--alert {
+    margin-top: 44px;
+  }
+
+  @keyframes config-panel-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   .config-section__header {
@@ -572,15 +667,26 @@ const jsonLd = PRICES_ARE_DEMO ? [breadcrumbJsonLd] : [breadcrumbJsonLd, ...prod
       font-size: 13px;
     }
 
-    .config-overview h2 {
-      font-size: 20px;
+    .config-picker {
+      gap: 18px;
+      padding: 16px;
     }
 
-    .config-nav {
-      grid-template-columns: 1fr;
+    .choice-group__options {
+      gap: 8px;
+    }
+
+    .choice {
+      min-height: 50px;
+      padding: 10px 8px;
+      font-size: 14px;
     }
 
     .config-section {
+      margin-top: 24px;
+    }
+
+    .config-section--alert {
       margin-top: 36px;
     }
 
@@ -598,8 +704,12 @@ const jsonLd = PRICES_ARE_DEMO ? [breadcrumbJsonLd] : [breadcrumbJsonLd, ...prod
 
   @media (prefers-reduced-motion: reduce) {
     .back-link,
-    .config-nav__item {
+    .choice {
       transition: none;
+    }
+
+    .config-section[data-config-panel]:not([hidden]) {
+      animation: none;
     }
   }
 </style>
