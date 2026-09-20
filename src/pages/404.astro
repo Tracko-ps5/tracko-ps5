@@ -1,0 +1,46 @@
+---
+export const prerender = true;
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout
+  title="Page introuvable — Tracko"
+  description="Cette page n'existe pas ou plus sur Tracko."
+>
+  <div class="container not-found">
+    <p class="not-found__eyebrow">Erreur 404</p>
+    <h1>Cette page n'existe pas.</h1>
+    <p>
+      Le lien est peut-être obsolète, ou l'adresse a été mal recopiée.
+    </p>
+    <a href="/" class="button button--primary">Retour à l'accueil</a>
+  </div>
+</Layout>
+
+<style>
+  .not-found {
+    padding: 80px 24px 100px;
+    max-width: 480px;
+    text-align: center;
+  }
+
+  .not-found__eyebrow {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    margin-bottom: 10px;
+  }
+
+  .not-found h1 {
+    font-size: 24px;
+    margin-bottom: 12px;
+  }
+
+  .not-found p {
+    font-size: 14px;
+    color: var(--color-text-secondary);
+    margin-bottom: 28px;
+  }
+</style>
