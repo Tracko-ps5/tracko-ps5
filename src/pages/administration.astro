@@ -25,7 +25,7 @@ let snapshotJson = "";
 let products: {
   key: string;
   label: string;
-  merchants: { id: string; name: string; price: number }[];
+  merchants: { id: string; name: string; price: number; available: boolean; url: string }[];
 }[] = [];
 
 if (authenticated) {
@@ -43,7 +43,13 @@ if (authenticated) {
     return {
       key,
       label,
-      merchants: entry.merchants.map((m) => ({ id: m.id, name: m.name, price: m.price })),
+      merchants: entry.merchants.map((m) => ({
+        id: m.id,
+        name: m.name,
+        price: m.price,
+        available: m.available,
+        url: m.url,
+      })),
     };
   });
 }
@@ -75,7 +81,7 @@ if (authenticated) {
         {saved === "1" && <p class="admin__success">Enregistré — le site affiche maintenant ces données.</p>}
         {error && errorMessages[error] && <p class="admin__error">{errorMessages[error]}</p>}
 
-        <p class="admin__hint">Clique sur un prix pour le modifier. Chaque modification est enregistrée immédiatement et visible tout de suite sur le site public.</p>
+        <p class="admin__hint">Clique sur un prix pour le modifier, sur Disponible/Indisponible pour basculer le statut, ou sur Lien pour changer l'URL exacte du produit. Chaque modification est enregistrée immédiatement et visible tout de suite sur le site public.</p>
 
         <div class="admin-products">
           {products.map((product) => (
@@ -105,6 +111,41 @@ if (authenticated) {
                         Enregistrer
                       </button>
                       <button type="button" class="admin-merchant__cancel-btn button" hidden>
+                        Annuler
+                      </button>
+                    </span>
+
+                    <button
+                      type="button"
+                      class:list={["admin-merchant__availability-btn", !m.available && "is-unavailable"]}
+                      data-available={String(m.available)}
+                      aria-pressed={String(m.available)}
+                      title="Cliquer pour basculer Disponible / Indisponible"
+                    >
+                      {m.available ? "Disponible" : "Indisponible"}
+                    </button>
+
+                    <span class="admin-merchant__url-wrap">
+                      <button
+                        type="button"
+                        class="admin-merchant__url-display"
+                        title={m.url}
+                      >
+                        Lien ↗
+                      </button>
+
+                      <input
+                        type="url"
+                        class="admin-merchant__url-input"
+                        value={m.url}
+                        placeholder="https://..."
+                        hidden
+                      />
+
+                      <button type="button" class="admin-merchant__url-save-btn button button--primary" hidden>
+                        Enregistrer
+                      </button>
+                      <button type="button" class="admin-merchant__url-cancel-btn button" hidden>
                         Annuler
                       </button>
                     </span>
@@ -222,6 +263,112 @@ if (authenticated) {
         saveBtn.disabled = false;
       }
     });
+
+    // Disponibilité : bascule immédiate (pas de mode édition séparé).
+    const availabilityBtn = row.querySelector<HTMLButtonElement>(".admin-merchant__availability-btn");
+
+    availabilityBtn?.addEventListener("click", async () => {
+      if (!key || !merchantId) return;
+
+      const currentlyAvailable = availabilityBtn.dataset.available === "true";
+      const nextAvailable = !currentlyAvailable;
+
+      availabilityBtn.disabled = true;
+      status.textContent = "Enregistrement…";
+      status.style.color = "";
+
+      try {
+        const response = await fetch("/api/admin/update-availability", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key, merchantId, available: nextAvailable }),
+        });
+
+        if (!response.ok) throw new Error();
+
+        availabilityBtn.dataset.available = String(nextAvailable);
+        availabilityBtn.setAttribute("aria-pressed", String(nextAvailable));
+        availabilityBtn.textContent = nextAvailable ? "Disponible" : "Indisponible";
+        availabilityBtn.classList.toggle("is-unavailable", !nextAvailable);
+        status.textContent = "✓ Enregistré";
+        status.style.color = "var(--color-excellent-text)";
+      } catch {
+        status.textContent = "Échec de l'enregistrement — réessaie.";
+        status.style.color = "var(--color-tres-cher-text)";
+      } finally {
+        availabilityBtn.disabled = false;
+      }
+    });
+
+    // URL exacte du produit : même interaction clic-pour-éditer que le prix.
+    const urlDisplay = row.querySelector<HTMLButtonElement>(".admin-merchant__url-display");
+    const urlInput = row.querySelector<HTMLInputElement>(".admin-merchant__url-input");
+    const urlSaveBtn = row.querySelector<HTMLButtonElement>(".admin-merchant__url-save-btn");
+    const urlCancelBtn = row.querySelector<HTMLButtonElement>(".admin-merchant__url-cancel-btn");
+
+    if (urlDisplay && urlInput && urlSaveBtn && urlCancelBtn) {
+      const startUrlEdit = () => {
+        status.textContent = "";
+        urlDisplay.hidden = true;
+        urlInput.hidden = false;
+        urlSaveBtn.hidden = false;
+        urlCancelBtn.hidden = false;
+        urlInput.focus();
+        urlInput.select();
+      };
+
+      const stopUrlEdit = () => {
+        urlDisplay.hidden = false;
+        urlInput.hidden = true;
+        urlSaveBtn.hidden = true;
+        urlCancelBtn.hidden = true;
+      };
+
+      urlDisplay.addEventListener("click", startUrlEdit);
+
+      urlCancelBtn.addEventListener("click", () => {
+        urlInput.value = urlDisplay.title;
+        stopUrlEdit();
+      });
+
+      urlInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") urlSaveBtn.click();
+        if (e.key === "Escape") urlCancelBtn.click();
+      });
+
+      urlSaveBtn.addEventListener("click", async () => {
+        const url = urlInput.value.trim();
+        if (!/^https?:\/\/.+/i.test(url)) {
+          status.textContent = "Lien invalide (doit commencer par http:// ou https://).";
+          status.style.color = "var(--color-tres-cher-text)";
+          return;
+        }
+
+        urlSaveBtn.disabled = true;
+        status.textContent = "Enregistrement…";
+        status.style.color = "";
+
+        try {
+          const response = await fetch("/api/admin/update-url", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ key, merchantId, url }),
+          });
+
+          if (!response.ok) throw new Error();
+
+          urlDisplay.title = url;
+          status.textContent = "✓ Enregistré";
+          status.style.color = "var(--color-excellent-text)";
+          stopUrlEdit();
+        } catch {
+          status.textContent = "Échec de l'enregistrement — réessaie.";
+          status.style.color = "var(--color-tres-cher-text)";
+        } finally {
+          urlSaveBtn.disabled = false;
+        }
+      });
+    }
 
     removeBtn?.addEventListener("click", async () => {
       const merchantName = row.querySelector(".admin-merchant__name")?.textContent?.trim() ?? merchantId;
@@ -394,6 +541,59 @@ if (authenticated) {
     width: 90px;
     font-family: inherit;
     font-size: 13px;
+    padding: 5px 8px;
+    border: 0.5px solid var(--color-border-strong);
+    border-radius: var(--radius-control);
+  }
+
+  .admin-merchant {
+    flex-wrap: wrap;
+  }
+
+  .admin-merchant__availability-btn {
+    flex-shrink: 0;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 650;
+    color: var(--color-excellent-text);
+    background: var(--color-excellent-bg);
+    border: 0.5px solid transparent;
+    border-radius: var(--radius-control);
+    padding: 5px 10px;
+    cursor: pointer;
+  }
+
+  .admin-merchant__availability-btn.is-unavailable {
+    color: var(--color-tres-cher-text);
+    background: var(--color-tres-cher-bg);
+  }
+
+  .admin-merchant__url-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .admin-merchant__url-display {
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-accent-blue);
+    background: var(--color-surface-muted);
+    border: 0.5px solid transparent;
+    border-radius: var(--radius-control);
+    padding: 5px 10px;
+    cursor: pointer;
+  }
+
+  .admin-merchant__url-display:hover {
+    border-color: var(--color-border-strong);
+  }
+
+  .admin-merchant__url-input {
+    width: 150px;
+    font-family: inherit;
+    font-size: 12px;
     padding: 5px 8px;
     border: 0.5px solid var(--color-border-strong);
     border-radius: var(--radius-control);

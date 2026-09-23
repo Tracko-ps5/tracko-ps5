@@ -1,7 +1,7 @@
 ---
 export const prerender = true;
 import Layout from "../../layouts/Layout.astro";
-import { families } from "../../data/mock-ps5";
+import { families, versionsForFamily } from "../../data/mock-ps5";
 
 const jsonLd = [
   {
@@ -88,15 +88,21 @@ const jsonLd = [
 
     <h2>Et le prix, concrètement ?</h2>
     <p>
-      L'écart de prix entre les deux versions tourne généralement autour de 50 à 60 € sur les trois familles PS5,
+      Sur la PS5 et la PS5 Slim, l'écart de prix entre les deux versions tourne généralement autour de 50 à 60 €,
       neuf comme reconditionné. Sur le long terme, si tu comptes acheter ne serait-ce que quelques jeux d'occasion,
-      l'écart se rattrape vite grâce aux économies sur les jeux physiques.
+      l'écart se rattrape vite grâce aux économies sur les jeux physiques. La PS5 Pro, elle, n'existe chez Sony
+      qu'en une seule référence (sans lecteur intégré) : il n'y a donc pas de choix Digital/Avec lecteur ni d'écart
+      de prix à comparer sur ce modèle — un lecteur Ultra HD Blu-ray reste disponible en accessoire séparé.
     </p>
 
     <h2>Comparer les prix par modèle</h2>
     <ul class="guide__links">
       {families.map((f) => (
-        <li><a href={`/ps5/${f.slug}`}>{f.name} — comparer Digital et Avec lecteur →</a></li>
+        <li>
+          <a href={`/ps5/${f.slug}`}>
+            {f.name} — {versionsForFamily(f.slug).length > 1 ? "comparer Digital et Avec lecteur" : "voir les offres"} →
+          </a>
+        </li>
       ))}
     </ul>
 

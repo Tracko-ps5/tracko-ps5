@@ -1,2 +1,10 @@
 # Local Netlify folder
 .netlify
+
+# Local environment
+.env.local
+
+# Generated files
+node_modules/
+.astro/
+dist/

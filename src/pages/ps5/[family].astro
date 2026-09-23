@@ -251,6 +251,26 @@ const jsonLd = PRICES_ARE_DEMO ? [breadcrumbJsonLd] : [breadcrumbJsonLd, ...prod
       </section>
     ))}
 
+    <section class="family-seo card fade-in" aria-labelledby="family-seo-heading">
+      <h2 id="family-seo-heading">Comment choisir sa {family.name} ?</h2>
+      <p>
+        Les prix ci-dessus comparent en continu les offres {editionLabels.neuf.toLowerCase()} et {editionLabels.reconditionne.toLowerCase()} de
+        plusieurs marchands français, pour repérer facilement la {family.name} la moins chère du moment.
+      </p>
+      {hasMultipleVersions && (
+        <p>
+          La version <strong>Digital</strong> coûte généralement 50 à 60 € de moins mais ne lit aucun disque ; la
+          version <strong>Avec lecteur</strong> permet d'acheter et de revendre des jeux physiques. Le détail dans
+          le guide <a href="/guides/digital-vs-lecteur">PS5 Digital ou Avec lecteur, laquelle choisir ?</a>
+        </p>
+      )}
+      <p>
+        Une {family.name} <strong>reconditionnée</strong> coûte en général 15 à 20 % de moins qu'une console neuve
+        équivalente, en échange d'une garantie souvent plus courte que celle du neuf. Le détail dans le guide
+        <a href="/guides/neuf-vs-reconditionne">PS5 Neuf ou Reconditionné, quelle différence ?</a>
+      </p>
+    </section>
+
     <section class="config-section config-section--alert" id="alerte">
       <AlertForm
         modelName={defaultConfig.modelName}
@@ -547,6 +567,33 @@ const jsonLd = PRICES_ARE_DEMO ? [breadcrumbJsonLd] : [breadcrumbJsonLd, ...prod
 
   .config-section--alert {
     margin-top: 44px;
+  }
+
+  .family-seo {
+    margin-top: 28px;
+    padding: 22px 24px;
+  }
+
+  .family-seo h2 {
+    margin: 0 0 12px;
+    font-size: 18px;
+    color: var(--color-text-primary);
+  }
+
+  .family-seo p {
+    margin: 0 0 10px;
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--color-text-secondary);
+  }
+
+  .family-seo p:last-child {
+    margin-bottom: 0;
+  }
+
+  .family-seo a {
+    color: var(--color-accent-blue);
+    font-weight: 500;
   }
 
   @keyframes config-panel-in {
