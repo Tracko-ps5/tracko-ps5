@@ -120,6 +120,7 @@ const merchantPool = [
   { id: "boulanger", name: "Boulanger", trustRating: 5 },
   { id: "playstation", name: "PlayStation Direct", trustRating: 5 },
   { id: "backmarket", name: "Back Market", trustRating: 4 },
+  { id: "easycash", name: "Easy Cash", trustRating: 4 },
 ];
 
 // Marche aléatoire déterministe (pas de Math.random) pour un historique stable au build

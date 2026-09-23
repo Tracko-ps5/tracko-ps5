@@ -23,6 +23,11 @@ const formattedDate = new Date(merchant.updatedAt).toLocaleDateString("fr-FR", {
  * hébergé sur son CDN officiel.
  *
  * PlayStation est préparé pour une future intégration.
+ *
+ * Easy Cash est préparé pour une future intégration : le favicon officiel
+ * de easycash.fr, même mécanisme que Amazon/Fnac/Cdiscount/Back Market/
+ * PlayStation. N'apparaît que si une offre Easy Cash existe réellement
+ * dans les données (voir data/mock-ps5.ts et lib/live-data.ts).
  */
 const merchantLogos: Record<string, string> = {
   amazon: "https://www.amazon.fr/favicon.ico",
@@ -37,6 +42,8 @@ const merchantLogos: Record<string, string> = {
   backmarket: "https://www.backmarket.fr/favicon.ico",
 
   playstation: "https://www.playstation.com/favicon.ico",
+
+  easycash: "https://www.easycash.fr/favicon.ico",
 };
 
 /*
@@ -66,6 +73,9 @@ const merchantAliases: Record<string, string> = {
 
   playstationcom: "playstation",
   playstationfr: "playstation",
+
+  easycashfr: "easycash",
+  easycashcom: "easycash",
 };
 
 const merchantKey =
@@ -81,16 +91,22 @@ const merchantInitial =
   merchant.name.trim().charAt(0).toUpperCase();
 ---
 
-<div class="merchant-row">
-  <div class="merchant-row__name">
+<div class:list={["merchant-card", isBest && "merchant-card--best"]}>
+  {isBest && (
+    <span class="merchant-card__ribbon">
+      Meilleur prix
+    </span>
+  )}
+
+  <div class="merchant-card__top">
     {merchantLogo ? (
-      <div class="merchant-row__logo-container">
+      <div class="merchant-card__logo-container">
         <img
-          class="merchant-row__logo"
+          class="merchant-card__logo"
           src={merchantLogo}
           alt=""
-          width="28"
-          height="28"
+          width={isBest ? "36" : "28"}
+          height={isBest ? "36" : "28"}
           loading="lazy"
           decoding="async"
           referrerpolicy="no-referrer"
@@ -99,20 +115,20 @@ const merchantInitial =
       </div>
     ) : (
       <div
-        class="merchant-row__fallback"
+        class="merchant-card__fallback"
         aria-hidden="true"
       >
         {merchantInitial}
       </div>
     )}
 
-    <div class="merchant-row__identity">
-      <p class="merchant-row__name-text">
+    <div class="merchant-card__identity">
+      <p class="merchant-card__name-text">
         {merchant.name}
       </p>
 
       <div
-        class="merchant-row__stars"
+        class="merchant-card__stars"
         aria-label={`Note de confiance : ${merchant.trustRating} sur 5`}
       >
         {Array.from({ length: 5 }).map((_, i) => (
@@ -127,29 +143,24 @@ const merchantInitial =
     </div>
   </div>
 
-  <div class="merchant-row__meta">
-    <span class={`merchant-row__availability ${merchant.available ? "" : "merchant-row__availability--out"}`}>
+  <div class="merchant-card__meta">
+    <span class={`merchant-card__availability ${merchant.available ? "" : "merchant-card__availability--out"}`}>
       {merchant.available ? "En stock" : "Indisponible"}
     </span>
 
-    <span class="merchant-row__updated">
+    <span class="merchant-card__updated">
       Màj {formattedDate}
     </span>
   </div>
 
-  <div class="merchant-row__price">
-    <span>{merchant.price} €</span>
-
-    {isBest && (
-      <span class="badge badge--excellent">
-        Meilleur prix
-      </span>
-    )}
+  <div class="merchant-card__price-row">
+    <span class="merchant-card__price">{merchant.price} €</span>
   </div>
 
   <a
     class:list={[
       "button",
+      "merchant-card__cta",
       isBest && merchant.available && "button--primary",
       !merchant.available && "button--disabled",
     ]}
@@ -162,28 +173,88 @@ const merchantInitial =
 </div>
 
 <style>
-  .merchant-row {
-    display: grid;
-    grid-template-columns: 1.4fr 1fr 1.2fr auto;
+  .merchant-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+    padding: 16px;
+    background: var(--color-surface);
+    border: 0.5px solid var(--color-border);
+    border-radius: var(--radius-card);
+    transition:
+      border-color 220ms var(--ease-premium),
+      box-shadow 220ms var(--ease-premium);
+  }
+
+  .merchant-card:hover {
+    border-color: var(--color-border-strong);
+    box-shadow: 0 10px 24px -18px rgba(23, 22, 17, 0.22);
+  }
+
+  /* ─────────────────────────────────────────
+     MEILLEUR PRIX — carte mise en avant
+  ───────────────────────────────────────── */
+
+  .merchant-card--best {
+    order: -1;
+    grid-column: 1 / -1;
+    gap: 14px;
+    padding: 22px 24px;
+    border: 1px solid var(--color-accent);
+    box-shadow: 0 16px 34px -20px rgba(27, 42, 74, 0.35);
+  }
+
+  @media (min-width: 561px) {
+    .merchant-card--best {
+      flex-direction: row;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .merchant-card--best .merchant-card__top {
+      flex: 1 1 220px;
+    }
+
+    .merchant-card--best .merchant-card__meta {
+      flex: 0 0 auto;
+    }
+
+    .merchant-card--best .merchant-card__price-row {
+      flex: 0 0 auto;
+      margin-left: auto;
+    }
+  }
+
+  .merchant-card__ribbon {
+    position: absolute;
+    top: 8px;
+    left: 20px;
+    display: inline-flex;
     align-items: center;
-    gap: 12px;
-    padding: 14px 16px;
-    border-bottom: 0.5px solid var(--color-border);
-    font-size: 14px;
+    padding: 3px 12px;
+    border-radius: 999px;
+    background: var(--color-accent);
+    color: var(--color-accent-text);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    box-shadow: 0 4px 10px -3px rgba(27, 42, 74, 0.5);
   }
 
-  .merchant-row:last-child {
-    border-bottom: none;
-  }
+  /* ─────────────────────────────────────────
+     LOGO / IDENTITÉ
+  ───────────────────────────────────────── */
 
-  .merchant-row__name {
+  .merchant-card__top {
     display: flex;
     align-items: center;
     gap: 10px;
     min-width: 0;
   }
 
-  .merchant-row__identity {
+  .merchant-card__identity {
     min-width: 0;
   }
 
@@ -192,8 +263,8 @@ const merchantInitial =
    * Cela garantit que chaque marchand occupe exactement
    * le même espace et évite tout décalage vertical.
    */
-  .merchant-row__logo-container,
-  .merchant-row__fallback {
+  .merchant-card__logo-container,
+  .merchant-card__fallback {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -205,11 +276,18 @@ const merchantInitial =
     overflow: hidden;
   }
 
-  .merchant-row__logo-container {
+  .merchant-card--best .merchant-card__logo-container,
+  .merchant-card--best .merchant-card__fallback {
+    width: 36px;
+    height: 36px;
+    flex-basis: 36px;
+  }
+
+  .merchant-card__logo-container {
     background: transparent;
   }
 
-  .merchant-row__logo {
+  .merchant-card__logo {
     display: block;
     width: 28px;
     height: 28px;
@@ -221,11 +299,16 @@ const merchantInitial =
     object-position: center;
   }
 
+  .merchant-card--best .merchant-card__logo {
+    width: 36px;
+    height: 36px;
+  }
+
   /*
    * Fallback uniquement pour un éventuel nouveau marchand
    * qui ne possède pas encore de logo dans merchantLogos.
    */
-  .merchant-row__fallback {
+  .merchant-card__fallback {
     border-radius: 7px;
     background: var(--color-surface-muted);
     color: var(--color-text-secondary);
@@ -233,7 +316,7 @@ const merchantInitial =
     font-weight: 600;
   }
 
-  .merchant-row__name-text {
+  .merchant-card__name-text {
     margin: 0 0 2px;
     font-weight: 500;
     white-space: nowrap;
@@ -241,11 +324,16 @@ const merchantInitial =
     text-overflow: ellipsis;
   }
 
+  .merchant-card--best .merchant-card__name-text {
+    font-size: 15px;
+    font-weight: 600;
+  }
+
   /*
    * Bloc étoiles strictement dimensionné.
    * Aucun espace ou élément supplémentaire sous le logo.
    */
-  .merchant-row__stars {
+  .merchant-card__stars {
     display: flex;
     align-items: center;
     width: max-content;
@@ -259,78 +347,116 @@ const merchantInitial =
     white-space: nowrap;
   }
 
-  .merchant-row__stars .is-filled {
+  .merchant-card__stars .is-filled {
     color: #c9a227;
   }
 
-  .merchant-row__meta {
+  /* ─────────────────────────────────────────
+     DISPONIBILITÉ / MÀJ
+  ───────────────────────────────────────── */
+
+  .merchant-card__meta {
     display: flex;
-    flex-direction: column;
-    gap: 2px;
+    align-items: center;
+    gap: 10px;
     font-size: 12px;
     color: var(--color-text-secondary);
   }
 
-  .merchant-row__availability {
+  .merchant-card__availability {
     color: var(--color-tier-bon-text);
     font-weight: 600;
   }
 
-  .merchant-row__availability--out {
+  .merchant-card__availability--out {
     color: var(--color-tres-cher-text);
   }
 
-  .merchant-row__updated {
+  .merchant-card__updated {
     color: var(--color-text-muted);
   }
 
-  .merchant-row__price {
+  /* ─────────────────────────────────────────
+     PRIX / BADGE / CTA
+  ───────────────────────────────────────── */
+
+  .merchant-card__price-row {
     display: flex;
     align-items: center;
-    flex-wrap: wrap;
     gap: 8px;
-    font-weight: 500;
   }
 
-  .merchant-row__price .badge {
-    white-space: nowrap;
+  .merchant-card__price {
+    font-weight: 600;
+    font-size: 16px;
+    color: var(--color-text-primary);
+  }
+
+  .merchant-card--best .merchant-card__price {
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--color-accent);
+  }
+
+  .merchant-card__cta {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .merchant-card--best .merchant-card__cta {
+    width: auto;
+    padding: 12px 22px;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  @media (min-width: 561px) {
+    .merchant-card__cta {
+      width: auto;
+    }
   }
 
   /* Offre indisponible : bouton visuellement désactivé, sans changer le
-     calcul du meilleur prix (géré ailleurs, côté [version].astro). */
+     calcul du meilleur prix (géré ailleurs, côté [family].astro). */
   .button--disabled,
-  .merchant-row a[aria-disabled="true"] {
+  .merchant-card a[aria-disabled="true"] {
     opacity: 0.45;
     cursor: not-allowed;
     pointer-events: none;
   }
 
   @media (max-width: 560px) {
-    .merchant-row {
-      grid-template-columns: 1fr 1fr;
-      row-gap: 8px;
+    .merchant-card {
+      padding: 14px;
     }
 
-    .merchant-row__meta {
-      order: 3;
+    .merchant-card--best {
+      padding: 20px 18px;
     }
 
-    .merchant-row__price {
-      justify-content: flex-end;
-      text-align: right;
-    }
-
-    .merchant-row > a {
-      order: 4;
-      grid-column: 1 / -1;
-    }
-
-    .merchant-row__logo-container,
-    .merchant-row__fallback,
-    .merchant-row__logo {
+    .merchant-card__logo-container,
+    .merchant-card__fallback,
+    .merchant-card__logo {
       width: 26px;
       height: 26px;
       flex-basis: 26px;
     }
+
+    .merchant-card--best .merchant-card__logo-container,
+    .merchant-card--best .merchant-card__fallback,
+    .merchant-card--best .merchant-card__logo {
+      width: 32px;
+      height: 32px;
+      flex-basis: 32px;
+    }
+
+    .merchant-card--best .merchant-card__price {
+      font-size: 24px;
+    }
   }
 </style>
+
+
+
