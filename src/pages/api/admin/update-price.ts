@@ -1,7 +1,7 @@
 export const prerender = false;
 import type { APIRoute } from "astro";
 import { isValidSession, ADMIN_SESSION_COOKIE } from "../../../lib/admin-auth";
-import { getLiveOverrides, getEditableSnapshot, saveLiveOverrides, type VariantOverride } from "../../../lib/live-data";
+import { updateLiveOverrides, getOverrideEntryOrDefault, LiveOverrideError } from "../../../lib/live-data";
 import { variants } from "../../../data/mock-ps5";
 
 // Modifie le prix d'UN SEUL marchand pour UNE SEULE variante, sans jamais
@@ -41,36 +41,34 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     return new Response(JSON.stringify({ error: "invalid_price" }), { status: 400 });
   }
 
-  const overrides = await getLiveOverrides();
-
-  // Si cette variante n'a encore aucun override, on part de son état actuel
-  // (live si une autre partie l'a déjà, sinon démo) pour ne perdre aucun des
-  // autres marchands déjà affichés — on ne remplace jamais la liste entière
-  // par un seul marchand.
-  let entry: VariantOverride | undefined = overrides[key];
-  if (!entry) {
-    const snapshot = await getEditableSnapshot();
-    entry = snapshot[key];
-  }
-
-  if (!entry) {
-    return new Response(JSON.stringify({ error: "unknown_key" }), { status: 400 });
-  }
-
-  const merchantIndex = entry.merchants.findIndex((m) => m.id === merchantId);
-  if (merchantIndex === -1) {
-    return new Response(JSON.stringify({ error: "unknown_merchant" }), { status: 400 });
-  }
-
-  const updatedMerchants = entry.merchants.map((m, i) => (i === merchantIndex ? { ...m, price } : m));
-  const updatedOverrides = {
-    ...overrides,
-    [key]: { ...entry, merchants: updatedMerchants },
-  };
-
   try {
-    await saveLiveOverrides(updatedOverrides);
+    await updateLiveOverrides((overrides) => {
+      // Si cette variante n'a encore aucun override, on part de son état
+      // actuel (live si une autre partie l'a déjà, sinon démo) pour ne perdre
+      // aucun des autres marchands déjà affichés — on ne remplace jamais la
+      // liste entière par un seul marchand. `overrides` est l'état le plus
+      // récent (relu à chaque tentative en cas de conflit d'écriture).
+      const entry = getOverrideEntryOrDefault(key, overrides);
+      if (!entry) {
+        throw new LiveOverrideError("unknown_key");
+      }
+
+      const merchantIndex = entry.merchants.findIndex((m) => m.id === merchantId);
+      if (merchantIndex === -1) {
+        throw new LiveOverrideError("unknown_merchant");
+      }
+
+      const updatedMerchants = entry.merchants.map((m, i) => (i === merchantIndex ? { ...m, price } : m));
+
+      return {
+        overrides: { ...overrides, [key]: { ...entry, merchants: updatedMerchants } },
+        result: undefined,
+      };
+    });
   } catch (err) {
+    if (err instanceof LiveOverrideError) {
+      return new Response(JSON.stringify({ error: err.code }), { status: 400 });
+    }
     console.error("[Tracko] Échec de l'enregistrement rapide d'un prix :", err);
     return new Response(JSON.stringify({ error: "storage" }), { status: 500 });
   }

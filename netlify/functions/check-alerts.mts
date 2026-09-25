@@ -12,7 +12,7 @@
 //   moment-là, puis on met à jour `wasAvailable` à chaque exécution (même
 //   sans envoi) pour pouvoir détecter un futur nouveau retour en stock si le
 //   produit repasse en rupture entre-temps.
-import { getAlerts, saveAlerts, type Alert } from "../../src/lib/alerts-data";
+import { getAlerts, applyAlertUpdates, type Alert } from "../../src/lib/alerts-data";
 import { getAllLiveVariants } from "../../src/lib/live-data";
 import { sendEmail } from "../../src/lib/send-email";
 import type { Variant } from "../../src/data/mock-ps5";
@@ -86,8 +86,15 @@ export default async () => {
   }
 
   let sentCount = 0;
-  let changed = false;
   const now = new Date().toISOString();
+
+  // Modifications à appliquer par id d'alerte (notifiedAt / wasAvailable),
+  // rejouées sur l'état le plus récent au moment de l'écriture (voir
+  // applyAlertUpdates dans alerts-data.ts). On ne réécrit jamais la liste
+  // `alerts` telle quelle : une alerte créée par une autre requête pendant
+  // l'exécution de cette fonction n'est donc jamais concernée par ce lot de
+  // modifications et ne peut pas disparaître.
+  const updates = new Map<string, Partial<Pick<Alert, "notifiedAt" | "wasAvailable">>>();
 
   // Alertes de prix — comportement inchangé (one-shot).
   for (const alert of pendingPriceAlerts) {
@@ -104,7 +111,7 @@ export default async () => {
       if (sent) {
         alert.notifiedAt = now;
         sentCount++;
-        changed = true;
+        updates.set(alert.id, { ...updates.get(alert.id), notifiedAt: now });
       }
     }
   }
@@ -129,18 +136,18 @@ export default async () => {
       if (sent) {
         alert.notifiedAt = now;
         sentCount++;
-        changed = true;
+        updates.set(alert.id, { ...updates.get(alert.id), notifiedAt: now });
       }
     }
 
     if (alert.wasAvailable !== isAvailableNow) {
       alert.wasAvailable = isAvailableNow;
-      changed = true;
+      updates.set(alert.id, { ...updates.get(alert.id), wasAvailable: isAvailableNow });
     }
   }
 
-  if (changed) {
-    await saveAlerts(alerts);
+  if (updates.size > 0) {
+    await applyAlertUpdates(updates);
   }
 
   return new Response(`${sentCount} alerte(s) envoyée(s) sur ${pendingPriceAlerts.length + stockAlerts.length} vérifiée(s).`, {

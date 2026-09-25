@@ -1,7 +1,7 @@
 export const prerender = false;
 import type { APIRoute } from "astro";
 import { isValidSession, ADMIN_SESSION_COOKIE } from "../../../lib/admin-auth";
-import { getLiveOverrides, getEditableSnapshot, saveLiveOverrides, type VariantOverride } from "../../../lib/live-data";
+import { updateLiveOverrides, getOverrideEntryOrDefault, LiveOverrideError } from "../../../lib/live-data";
 import { variants } from "../../../data/mock-ps5";
 
 // Modifie la disponibilité (Disponible / Indisponible) d'UN SEUL marchand pour
@@ -37,35 +37,33 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     return new Response(JSON.stringify({ error: "invalid_available" }), { status: 400 });
   }
 
-  const overrides = await getLiveOverrides();
-
-  // Même logique de repli que update-price.ts : on part de l'état actuel
-  // (live si présent, sinon référence) pour ne perdre aucun des autres
-  // marchands déjà affichés.
-  let entry: VariantOverride | undefined = overrides[key];
-  if (!entry) {
-    const snapshot = await getEditableSnapshot();
-    entry = snapshot[key];
-  }
-
-  if (!entry) {
-    return new Response(JSON.stringify({ error: "unknown_key" }), { status: 400 });
-  }
-
-  const merchantIndex = entry.merchants.findIndex((m) => m.id === merchantId);
-  if (merchantIndex === -1) {
-    return new Response(JSON.stringify({ error: "unknown_merchant" }), { status: 400 });
-  }
-
-  const updatedMerchants = entry.merchants.map((m, i) => (i === merchantIndex ? { ...m, available } : m));
-  const updatedOverrides = {
-    ...overrides,
-    [key]: { ...entry, merchants: updatedMerchants },
-  };
-
   try {
-    await saveLiveOverrides(updatedOverrides);
+    await updateLiveOverrides((overrides) => {
+      // Même logique de repli que update-price.ts : on part de l'état actuel
+      // (live si présent, sinon référence) pour ne perdre aucun des autres
+      // marchands déjà affichés. `overrides` est relu à chaque tentative en
+      // cas de conflit d'écriture.
+      const entry = getOverrideEntryOrDefault(key, overrides);
+      if (!entry) {
+        throw new LiveOverrideError("unknown_key");
+      }
+
+      const merchantIndex = entry.merchants.findIndex((m) => m.id === merchantId);
+      if (merchantIndex === -1) {
+        throw new LiveOverrideError("unknown_merchant");
+      }
+
+      const updatedMerchants = entry.merchants.map((m, i) => (i === merchantIndex ? { ...m, available } : m));
+
+      return {
+        overrides: { ...overrides, [key]: { ...entry, merchants: updatedMerchants } },
+        result: undefined,
+      };
+    });
   } catch (err) {
+    if (err instanceof LiveOverrideError) {
+      return new Response(JSON.stringify({ error: err.code }), { status: 400 });
+    }
     console.error("[Tracko] Échec de la mise à jour de la disponibilité :", err);
     return new Response(JSON.stringify({ error: "storage" }), { status: 500 });
   }

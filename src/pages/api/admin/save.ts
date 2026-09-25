@@ -1,7 +1,7 @@
 export const prerender = false;
 import type { APIRoute } from "astro";
 import { isValidSession, ADMIN_SESSION_COOKIE } from "../../../lib/admin-auth";
-import { saveLiveOverrides, type LiveOverrides, type VariantOverride } from "../../../lib/live-data";
+import { replaceLiveOverrides, type LiveOverrides, type VariantOverride } from "../../../lib/live-data";
 
 const URL_PATTERN = /^https?:\/\/.+/i;
 
@@ -93,7 +93,11 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
   }
 
   try {
-    await saveLiveOverrides(normalized);
+    // Ce mode remplace intentionnellement tout le blob par la donnée collée
+    // par l'admin (pas de fusion possible ici) : replaceLiveOverrides()
+    // protège seulement contre une écriture sur un ETag périmé, avec une
+    // courte reprise en cas de conflit.
+    await replaceLiveOverrides(normalized);
   } catch (err) {
     console.error("[Tracko] Échec de l'enregistrement admin :", err);
     return redirect("/administration?error=storage", 302);

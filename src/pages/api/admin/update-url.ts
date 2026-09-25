@@ -1,7 +1,7 @@
 export const prerender = false;
 import type { APIRoute } from "astro";
 import { isValidSession, ADMIN_SESSION_COOKIE } from "../../../lib/admin-auth";
-import { getLiveOverrides, getEditableSnapshot, saveLiveOverrides, type VariantOverride } from "../../../lib/live-data";
+import { updateLiveOverrides, getOverrideEntryOrDefault, LiveOverrideError } from "../../../lib/live-data";
 import { variants } from "../../../data/mock-ps5";
 
 // Validation minimale : même règle que api/admin/save.ts (http:// ou https://).
@@ -40,32 +40,29 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     return new Response(JSON.stringify({ error: "invalid_url" }), { status: 400 });
   }
 
-  const overrides = await getLiveOverrides();
-
-  let entry: VariantOverride | undefined = overrides[key];
-  if (!entry) {
-    const snapshot = await getEditableSnapshot();
-    entry = snapshot[key];
-  }
-
-  if (!entry) {
-    return new Response(JSON.stringify({ error: "unknown_key" }), { status: 400 });
-  }
-
-  const merchantIndex = entry.merchants.findIndex((m) => m.id === merchantId);
-  if (merchantIndex === -1) {
-    return new Response(JSON.stringify({ error: "unknown_merchant" }), { status: 400 });
-  }
-
-  const updatedMerchants = entry.merchants.map((m, i) => (i === merchantIndex ? { ...m, url } : m));
-  const updatedOverrides = {
-    ...overrides,
-    [key]: { ...entry, merchants: updatedMerchants },
-  };
-
   try {
-    await saveLiveOverrides(updatedOverrides);
+    await updateLiveOverrides((overrides) => {
+      const entry = getOverrideEntryOrDefault(key, overrides);
+      if (!entry) {
+        throw new LiveOverrideError("unknown_key");
+      }
+
+      const merchantIndex = entry.merchants.findIndex((m) => m.id === merchantId);
+      if (merchantIndex === -1) {
+        throw new LiveOverrideError("unknown_merchant");
+      }
+
+      const updatedMerchants = entry.merchants.map((m, i) => (i === merchantIndex ? { ...m, url } : m));
+
+      return {
+        overrides: { ...overrides, [key]: { ...entry, merchants: updatedMerchants } },
+        result: undefined,
+      };
+    });
   } catch (err) {
+    if (err instanceof LiveOverrideError) {
+      return new Response(JSON.stringify({ error: err.code }), { status: 400 });
+    }
     console.error("[Tracko] Échec de la mise à jour de l'URL produit :", err);
     return new Response(JSON.stringify({ error: "storage" }), { status: 500 });
   }
